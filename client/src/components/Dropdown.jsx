@@ -32,10 +32,10 @@ export function UserDropdown({ logoutHandler }) {
       setIsOpen(false);
    };
 
-   const handleOrderRedirect = () => {
-      navigate("/your-orders");
-      setIsOpen(false);
-   };
+   // const handleOrderRedirect = () => {
+   //    navigate("/your-orders");
+   //    setIsOpen(false);
+   // };
 
    const handleSignOut = async () => {
       setIsOpen(false);
@@ -114,14 +114,14 @@ export function UserDropdown({ logoutHandler }) {
                            Wishlist
                         </button>
                      )}
-                     {!userInfo.isAdmin && (
+                     {/* {!userInfo.isAdmin && (
                         <button
                            onClick={handleOrderRedirect}
                            className="block w-full text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 px-4 py-2"
                         >
                            Orders
                         </button>
-                     )}
+                     )} */}
                      <div className="border-t border-gray-200 dark:border-gray-700"></div>
                      <button
                         onClick={handleSignOut}

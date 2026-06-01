@@ -6,7 +6,8 @@ import { BASE_URL } from "../../Redux/Constants/BASE_URL";
 const AddProductModal = ({ isOpen, closeModal, showToast }) => {
    const { refreshProducts } = useOutletContext();
    const [isUploading, setIsUploading] = useState(false);
-   const [imagePreview, setImagePreview] = useState(null);
+   const [imagePreviews, setImagePreviews] = useState([]);
+   const [selectedFiles, setSelectedFiles] = useState([]);
    const [showSizes, setShowSizes] = useState(false);
    const [sizes, setSizes] = useState({
       S: 0,
@@ -42,24 +43,23 @@ const AddProductModal = ({ isOpen, closeModal, showToast }) => {
    };
 
    const handleImageChange = (e) => {
-      const file = e.target.files[0];
-      if (file) {
-         const reader = new FileReader();
-         reader.onloadend = () => {
-            setImagePreview(reader.result);
-         };
-         reader.readAsDataURL(file);
-      } else {
-         setImagePreview(null);
+      const files = Array.from(e.target.files);
+      if (files.length > 0) {
+         setSelectedFiles(prev => [...prev, ...files]);
+         files.forEach(file => {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+               setImagePreviews(prev => [...prev, reader.result]);
+            };
+            reader.readAsDataURL(file);
+         });
       }
+      e.target.value = null; // Reset input so same file can be selected again
    };
 
-   const handleImageDelete = () => {
-      setImagePreview(null);
-      const fileInput = document.getElementById('image');
-      if (fileInput) {
-         fileInput.value = '';
-      }
+   const handleImageDelete = (index) => {
+      setImagePreviews(prev => prev.filter((_, i) => i !== index));
+      setSelectedFiles(prev => prev.filter((_, i) => i !== index));
    };
 
 
@@ -68,9 +68,8 @@ const AddProductModal = ({ isOpen, closeModal, showToast }) => {
       e.preventDefault();
       setIsUploading(true);
 
-      const imageFile = e.target.image.files[0];
-      if (!imageFile) {
-         showToast("Image is required", "error");
+      if (selectedFiles.length === 0) {
+         showToast("At least one image is required", "error");
          setIsUploading(false);
          return;
       }
@@ -85,7 +84,11 @@ const AddProductModal = ({ isOpen, closeModal, showToast }) => {
       formData.append('category', e.target.category.value);
       formData.append('price', e.target.price.value);
       formData.append('countInStock', showSizes ? Object.values(latestSizes).reduce((a, b) => a + b, 0) : e.target.stock.value);
-      formData.append('image', imageFile);
+      
+      selectedFiles.forEach(file => {
+         formData.append('images', file);
+      });
+
       if (showSizes) {
          formData.append('sizes', JSON.stringify(latestSizes));
       }
@@ -266,48 +269,52 @@ const AddProductModal = ({ isOpen, closeModal, showToast }) => {
                      >
                         Image
                      </label>
-                     <div className="relative flex items-center justify-center w-full h-40 border-2 border-dashed border-gray-300 rounded-lg bg-gray-50 dark:bg-gray-700 dark:border-gray-600">
+                     <div className="relative flex flex-col items-center justify-center w-full min-h-40 border-2 border-dashed border-gray-300 rounded-lg bg-gray-50 dark:bg-gray-700 dark:border-gray-600 p-2">
                         <input
                            type="file"
                            id="image"
                            name="image"
-                           className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                           className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
                            accept="image/*"
+                           multiple
                            onChange={handleImageChange}
-                           required
                         />
-                        {imagePreview ? (
-                           <img
-                              src={imagePreview}
-                              alt="Preview"
-                              className="absolute inset-0 object-cover w-full h-full rounded-lg"
-                           />
+                        {imagePreviews.length > 0 ? (
+                           <div className="flex flex-wrap gap-2 w-full z-20 pointer-events-none">
+                              {imagePreviews.map((preview, idx) => (
+                                 <div key={idx} className="relative w-20 h-20 pointer-events-auto">
+                                    <img
+                                       src={preview}
+                                       alt={`Preview ${idx}`}
+                                       className="w-full h-full object-cover rounded-lg"
+                                    />
+                                    <button
+                                       type="button"
+                                       onClick={() => handleImageDelete(idx)}
+                                       className="absolute -top-2 -right-2 p-1 text-white bg-red-500 rounded-full hover:bg-red-600 z-30"
+                                    >
+                                       <svg
+                                          xmlns="http://www.w3.org/2000/svg"
+                                          fill="none"
+                                          viewBox="0 0 24 24"
+                                          stroke="currentColor"
+                                          className="w-4 h-4"
+                                       >
+                                          <path
+                                             strokeLinecap="round"
+                                             strokeLinejoin="round"
+                                             strokeWidth="2"
+                                             d="M6 18L18 6M6 6l12 12"
+                                          />
+                                       </svg>
+                                    </button>
+                                 </div>
+                              ))}
+                           </div>
                         ) : (
                            <span className="text-sm text-gray-500 dark:text-gray-300">
-                              Drag & Drop or Browse
+                              Drag & Drop or Browse (Max 5)
                            </span>
-                        )}
-                        {imagePreview && (
-                           <button
-                              type="button"
-                              onClick={handleImageDelete}
-                              className="absolute top-2 right-2 p-1 text-white bg-red-500 rounded-full hover:bg-red-600"
-                           >
-                              <svg
-                                 xmlns="http://www.w3.org/2000/svg"
-                                 fill="none"
-                                 viewBox="0 0 24 24"
-                                 stroke="currentColor"
-                                 className="w-5 h-5"
-                              >
-                                 <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    strokeWidth="2"
-                                    d="M6 18L18 6M6 6l12 12"
-                                 />
-                              </svg>
-                           </button>
                         )}
                      </div>
                   </div>

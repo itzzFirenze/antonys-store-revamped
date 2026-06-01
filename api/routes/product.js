@@ -65,34 +65,51 @@ productRoute.get('/:id', asyncHandler(async (req, res) => {
 
 
 // ─── Add a product ────────────────────────────────────────────────────────────
-productRoute.post('/', upload.single('image'), asyncHandler(async (req, res) => {
+productRoute.post('/', upload.array('images', 5), asyncHandler(async (req, res) => {
    const { name, brand, price, color, countInStock, category, image: imageUrl, sizes } = req.body;
 
    if (!name || !brand || !price || !color || !countInStock || !category) {
       return res.status(400).json({ message: 'All fields are required.' });
    }
 
-   let finalImage;
-   if (req.file) {
-      const fileName = `${Date.now()}-${req.file.originalname.replace(/[^a-zA-Z0-9.-]/g, '')}`;
-      const { data, error } = await supabase.storage
-         .from('products')
-         .upload(`public/${fileName}`, req.file.buffer, {
-            contentType: req.file.mimetype,
-            upsert: false
-         });
+   const finalImages = [];
+   
+   if (req.files && req.files.length > 0) {
+      for (const file of req.files) {
+         const fileName = `${Date.now()}-${file.originalname.replace(/[^a-zA-Z0-9.-]/g, '')}`;
+         const { data, error } = await supabase.storage
+            .from('products')
+            .upload(`public/${fileName}`, file.buffer, {
+               contentType: file.mimetype,
+               upsert: false
+            });
 
-      if (error) {
-         console.error('Supabase upload error:', error);
-         return res.status(500).json({ message: 'Image upload failed' });
+         if (error) {
+            console.error('Supabase upload error:', error);
+            return res.status(500).json({ message: 'Image upload failed' });
+         }
+
+         const { data: { publicUrl } } = supabase.storage.from('products').getPublicUrl(`public/${fileName}`);
+         finalImages.push(publicUrl);
       }
+   }
+   
+   // Handle case where images were provided as strings (URLs)
+   if (req.body.images) {
+      if (Array.isArray(req.body.images)) {
+         finalImages.push(...req.body.images);
+      } else {
+         finalImages.push(req.body.images);
+      }
+   }
+   
+   // Fallback to legacy single image URL
+   if (imageUrl) {
+      finalImages.push(imageUrl);
+   }
 
-      const { data: { publicUrl } } = supabase.storage.from('products').getPublicUrl(`public/${fileName}`);
-      finalImage = publicUrl;
-   } else if (imageUrl) {
-      finalImage = imageUrl;
-   } else {
-      return res.status(400).json({ message: 'Image is required (either as file or URL).' });
+   if (finalImages.length === 0) {
+      return res.status(400).json({ message: 'At least one image is required.' });
    }
 
    const parsedSizes = sizes
@@ -106,7 +123,7 @@ productRoute.post('/', upload.single('image'), asyncHandler(async (req, res) => 
       color,
       countInStock: Number(countInStock),
       category,
-      image: finalImage,
+      image: finalImages,
       sizes: parsedSizes,
    });
 
@@ -115,32 +132,47 @@ productRoute.post('/', upload.single('image'), asyncHandler(async (req, res) => 
 
 
 // ─── Update a product ─────────────────────────────────────────────────────────
-productRoute.put('/:id', upload.single('image'), asyncHandler(async (req, res) => {
+productRoute.put('/:id', upload.array('images', 5), asyncHandler(async (req, res) => {
    try {
-      const { name, brand, price, color, countInStock, category, sizes, image } = req.body;
+      const { name, brand, price, color, countInStock, category, sizes, existingImages } = req.body;
 
       const existingProduct = await productModel.findById(req.params.id);
       if (!existingProduct) {
          return res.status(404).json({ message: 'Product not found' });
       }
 
-      let finalImage = image;
-      if (req.file) {
-         const fileName = `${Date.now()}-${req.file.originalname.replace(/[^a-zA-Z0-9.-]/g, '')}`;
-         const { data, error } = await supabase.storage
-            .from('products')
-            .upload(`public/${fileName}`, req.file.buffer, {
-               contentType: req.file.mimetype,
-               upsert: false
-            });
-
-         if (error) {
-            console.error('Supabase upload error:', error);
-            return res.status(500).json({ message: 'Image upload failed' });
+      let finalImages = [];
+      
+      // Parse existing images sent back from client
+      if (existingImages) {
+         try {
+            finalImages = JSON.parse(existingImages);
+            if (!Array.isArray(finalImages)) {
+               finalImages = [finalImages];
+            }
+         } catch (e) {
+            finalImages = Array.isArray(existingImages) ? existingImages : [existingImages];
          }
+      }
 
-         const { data: { publicUrl } } = supabase.storage.from('products').getPublicUrl(`public/${fileName}`);
-         finalImage = publicUrl;
+      if (req.files && req.files.length > 0) {
+         for (const file of req.files) {
+            const fileName = `${Date.now()}-${file.originalname.replace(/[^a-zA-Z0-9.-]/g, '')}`;
+            const { data, error } = await supabase.storage
+               .from('products')
+               .upload(`public/${fileName}`, file.buffer, {
+                  contentType: file.mimetype,
+                  upsert: false
+               });
+
+            if (error) {
+               console.error('Supabase upload error:', error);
+               return res.status(500).json({ message: 'Image upload failed' });
+            }
+
+            const { data: { publicUrl } } = supabase.storage.from('products').getPublicUrl(`public/${fileName}`);
+            finalImages.push(publicUrl);
+         }
       }
 
       const parsedSizes = sizes
@@ -154,7 +186,7 @@ productRoute.put('/:id', upload.single('image'), asyncHandler(async (req, res) =
          color,
          countInStock,
          category,
-         image: finalImage,
+         image: finalImages,
          sizes: parsedSizes,
       });
 

@@ -5,6 +5,25 @@ const crypto = require('crypto');
 
 function toClientShape(row) {
    if (!row) return null;
+
+   let parsedImages = [];
+   if (typeof row.image === 'string') {
+      try {
+         const parsed = JSON.parse(row.image);
+         if (Array.isArray(parsed)) {
+            parsedImages = parsed;
+         } else {
+            parsedImages = [row.image];
+         }
+      } catch (e) {
+         parsedImages = [row.image];
+      }
+   } else if (Array.isArray(row.image)) {
+      parsedImages = row.image;
+   } else if (row.image) {
+      parsedImages = [row.image];
+   }
+
    return {
       _id:          row.id,
       productCode:  row.product_code,
@@ -14,7 +33,8 @@ function toClientShape(row) {
       color:        row.color,
       category:     row.category,
       countInStock: row.count_in_stock,
-      image:        row.image,
+      image:        parsedImages[0] || null,
+      images:       parsedImages,
       sizes:        row.sizes,
       createdAt:    row.created_at,
    };
@@ -97,6 +117,11 @@ async function create({ name, brand, price, color, countInStock, category, image
    const id = crypto.randomUUID();
    const product_code = await generateProductCode(category);
    const parsedSizes = sizes || { S: 0, M: 0, L: 0, XL: 0, XXL: 0 };
+   
+   let imageValue = image;
+   if (Array.isArray(image)) {
+      imageValue = JSON.stringify(image);
+   }
 
    const { data, error } = await supabase
       .from('products')
@@ -109,7 +134,7 @@ async function create({ name, brand, price, color, countInStock, category, image
          color,
          category,
          count_in_stock: countInStock,
-         image,
+         image: imageValue,
          sizes: parsedSizes,
       })
       .select()
@@ -126,7 +151,9 @@ async function update(id, fields) {
    if (fields.color        !== undefined) dbFields.color          = fields.color;
    if (fields.countInStock !== undefined) dbFields.count_in_stock = fields.countInStock;
    if (fields.category     !== undefined) dbFields.category       = fields.category;
-   if (fields.image        !== undefined) dbFields.image          = fields.image;
+   if (fields.image        !== undefined) {
+      dbFields.image = Array.isArray(fields.image) ? JSON.stringify(fields.image) : fields.image;
+   }
    if (fields.sizes        !== undefined) dbFields.sizes          = fields.sizes;
 
    const { data, error } = await supabase

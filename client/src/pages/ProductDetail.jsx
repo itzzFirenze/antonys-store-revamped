@@ -8,73 +8,62 @@ import AnimatedWishlistButton from "../components/animatedWishButton";
 import axios from "axios";
 import Toast from "../components/Toast";
 import { BASE_URL } from "../Redux/Constants/BASE_URL";
-import { Maximize2 } from 'lucide-react';
+import { X, ZoomIn, ShieldCheck, RefreshCcw, Truck } from "lucide-react";
 
-// ImageMagnifier Component
-const ImageMagnifier = ({ src, alt, onLoad, imageLoading }) => {
-   const [showMagnifier, setShowMagnifier] = useState(false);
-   const [isZoomed, setIsZoomed] = useState(false);
-
-   const handleMouseEnter = () => {
-      setShowMagnifier(true);
-   };
-
-   const handleMouseLeave = () => {
-      setShowMagnifier(false);
-   };
-
-   const handleImageClick = () => {
-      setIsZoomed(!isZoomed);
-   };
+// ─── Image Lightbox ────────────────────────────────────────────────────────
+const ImageLightbox = ({ src, alt, onLoad }) => {
+   const [isOpen, setIsOpen] = useState(false);
+   const [isHovered, setIsHovered] = useState(false);
 
    return (
-      <div className="relative w-full h-full flex items-center justify-center">
-         {/* Regular image view */}
+      <>
          <div
-            className="relative flex items-center justify-center"
-            onMouseEnter={handleMouseEnter}
-            onMouseLeave={handleMouseLeave}
+            className="relative w-full h-full flex items-center justify-center cursor-zoom-in group"
+            onMouseEnter={() => setIsHovered(true)}
+            onMouseLeave={() => setIsHovered(false)}
+            onClick={() => setIsOpen(true)}
          >
             <img
                src={src}
                alt={alt}
-               className={`max-h-[400px] w-auto object-contain rounded-lg cursor-zoom-in transition-all duration-300 ${
-                  isZoomed ? 'opacity-0' : 'opacity-100'
-               }`}
-               onClick={handleImageClick}
+               className="max-h-[520px] w-full object-contain transition-transform duration-500 group-hover:scale-[1.02]"
                onLoad={onLoad}
-               onError={(e) => {
-                  e.target.onerror = null;
-                  e.target.src = '/placeholder-image.jpg';
-               }}
+               onError={(e) => { e.target.onerror = null; e.target.src = "/placeholder-image.jpg"; }}
             />
-
-            {/* Magnifier icon overlay */}
-            {showMagnifier && !isZoomed && (
-               <div className="absolute top-4 right-4 bg-black/60 p-2.5 rounded-full shadow-lg hover:bg-black/70 transition-colors">
-                  <Maximize2 className="w-6 h-6 text-white" />
-               </div>
-            )}
+            <div className={`absolute bottom-4 right-4 flex items-center gap-1.5 bg-white/90 backdrop-blur-sm border border-gray-200 text-gray-500 text-[11px] font-medium px-3 py-1.5 rounded-full shadow-sm transition-all duration-300 ${isHovered ? "opacity-100 translate-y-0" : "opacity-0 translate-y-1"}`}>
+               <ZoomIn className="w-3 h-3" />
+               <span>Zoom</span>
+            </div>
          </div>
 
-         {/* Zoomed view */}
-         {isZoomed && (
-            <div
-               className="fixed inset-0 z-50 flex items-center justify-center bg-black/80"
-               onClick={handleImageClick}
-            >
-               <img
-                  src={src}
-                  alt={alt}
-                  className="max-w-[90vw] max-h-[90vh] object-contain cursor-zoom-out"
-               />
+         {isOpen && (
+            <div className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center" onClick={() => setIsOpen(false)}>
+               <button className="absolute top-5 right-5 text-white/60 hover:text-white transition-colors p-2" onClick={() => setIsOpen(false)}>
+                  <X className="w-6 h-6" />
+               </button>
+               <img src={src} alt={alt} className="max-w-[88vw] max-h-[88vh] object-contain cursor-zoom-out" onClick={(e) => e.stopPropagation()} />
             </div>
          )}
-      </div>
+      </>
    );
 };
 
-// Main ProductDetail Component
+// ─── Stock Badge ───────────────────────────────────────────────────────────
+const StockBadge = ({ inStock }) =>
+   inStock ? (
+      <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-full">
+         <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block" />
+         In Stock
+      </span>
+   ) : (
+      <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-red-600 bg-red-50 border border-red-200 px-2.5 py-1 rounded-full">
+         <span className="w-1.5 h-1.5 rounded-full bg-red-400 inline-block" />
+         Out of Stock
+      </span>
+   );
+
+
+// ─── Main Component ────────────────────────────────────────────────────────
 function ProductDetail() {
    const { id } = useParams();
    const dispatch = useDispatch();
@@ -87,222 +76,240 @@ function ProductDetail() {
    const [isInWishlist, setIsInWishlist] = useState(false);
    const [isInitialLoading, setIsInitialLoading] = useState(true);
    const [selectedSize, setSelectedSize] = useState(null);
+   const [activeImage, setActiveImage] = useState(null);
+   const [toast, setToast] = useState({ show: false, message: "", type: "error" });
 
-   const [toast, setToast] = useState({
-      show: false,
-      message: '',
-      type: 'error'
-   });
-
-   const showSizesForProduct = product?.category === "Ready-made churidar" ||
+   const showSizesForProduct =
+      product?.category === "Ready-made churidar" ||
       product?.category === "Leggings/Pants";
+
+   useEffect(() => {
+      if (product?.image) {
+         setActiveImage(product.image);
+      }
+   }, [product]);
 
    useEffect(() => {
       window.scrollTo(0, 0);
       setIsInitialLoading(true);
-
-      dispatch({ type: 'PRODUCT_DETAIL_RESET' });
-
-      dispatch(productAction(id)).finally(() => {
-         setIsInitialLoading(false);
-      });
-
-      return () => {
-         dispatch({ type: 'PRODUCT_DETAIL_RESET' });
-      };
+      dispatch({ type: "PRODUCT_DETAIL_RESET" });
+      dispatch(productAction(id)).finally(() => setIsInitialLoading(false));
+      return () => dispatch({ type: "PRODUCT_DETAIL_RESET" });
    }, [dispatch, id]);
 
    useEffect(() => {
-      const fetchWishlistState = async () => {
-         if (userInfo) {
-            try {
-               const response = await axios.get(
-                  `${BASE_URL}/api/wishlist?userId=${userInfo._id}`
-               );
-               const wishlist = response.data.wishlist || [];
-               setIsInWishlist(wishlist.includes(id));
-            } catch (error) {
-               console.error("Error fetching wishlist state:", error);
-            }
-         }
-      };
-
-      fetchWishlistState();
+      if (!userInfo) return;
+      axios
+         .get(`${BASE_URL}/api/wishlist?userId=${userInfo._id}`)
+         .then((res) => setIsInWishlist((res.data.wishlist || []).includes(id)))
+         .catch(console.error);
    }, [userInfo, id]);
 
-   const showToast = (message, type = 'error') => {
-      setToast({
-         show: true,
-         message: message,
-         type: type
-      });
-
-      setTimeout(() => {
-         setToast({ show: false, message: '', type: 'error' });
-      }, 4000);
+   const showToast = (message, type = "error") => {
+      setToast({ show: true, message, type });
+      setTimeout(() => setToast({ show: false, message: "", type: "error" }), 4000);
    };
 
    const handleWishlistToggle = async () => {
-      if (!userInfo) {
-         showToast('Please log in to add this product to wishlist');
-         return;
-      }
-
+      if (!userInfo) { showToast("Please log in to add this product to wishlist"); return; }
       try {
          if (isInWishlist) {
-            await axios.delete(`${BASE_URL}/api/wishlist/${id}`, {
-               data: { userId: userInfo._id },
-            });
+            await axios.delete(`${BASE_URL}/api/wishlist/${id}`, { data: { userId: userInfo._id } });
             setIsInWishlist(false);
          } else {
-            await axios.post(`${BASE_URL}/api/wishlist`, {
-               userId: userInfo._id,
-               productId: id,
-            });
+            await axios.post(`${BASE_URL}/api/wishlist`, { userId: userInfo._id, productId: id });
             setIsInWishlist(true);
          }
-      } catch (error) {
-         console.error("Error toggling wishlist state:", error);
-      }
+      } catch (err) { console.error(err); }
    };
-
-   const handleSizeSelect = (size) => {
-      setSelectedSize(size);
-   };
-
-
-   const handleCloseToast = () => {
-      setToast({ show: false, message: '', type: 'error' });
-   };
-
-   const handleImageLoad = () => setImageLoading(false);
 
    const getImageSrc = (image) => {
-      if (!image) return '/placeholder-image.jpg';
-      return image.startsWith('data:') || image.startsWith('http')
+      if (!image) return "/placeholder-image.jpg";
+      return image.startsWith("data:") || image.startsWith("http")
          ? image
          : `data:image/jpeg;base64,${image}`;
    };
 
-   const SizeSelector = () => {
-      if (!showSizesForProduct || !product.sizes) return null;
-
-      return (
-         <div className="space-y-3">
-            <h3 className="text-lg font-semibold text-gray-700">Select Size</h3>
-            <div className="flex flex-wrap gap-3">
-               {Object.entries(product.sizes).map(([size, count]) => (
-                  <button
-                     key={size}
-                     onClick={() => handleSizeSelect(size)}
-                     disabled={count === 0}
-                     className={`
-                        px-4 py-2 rounded-lg border-2 transition-all duration-200
-                        ${count === 0
-                           ? 'bg-gray-100 text-gray-400 cursor-not-allowed border-gray-200'
-                           : selectedSize === size
-                              ? 'bg-fuchsia-800 text-white border-fuchsia-800 hover:bg-fuchsia-900'
-                              : 'bg-white text-gray-700 border-gray-300 hover:border-fuchsia-800'
-                        }
-                     `}
-                  >
-                     <span className="font-medium">{size}</span>
-                  </button>
-               ))}
-            </div>
-         </div>
-      );
-   };
-
    const isOutOfStock = showSizesForProduct
-      ? Object.values(product.sizes || {}).every(count => count === 0)
+      ? Object.values(product?.sizes || {}).every((c) => c === 0)
       : product?.countInStock === 0;
 
-   if (loading || isInitialLoading) return (
-      <Layout>
-         <div className="fixed inset-0 flex items-center justify-center bg-white">
-            <Spinner />
-         </div>
-      </Layout>
-   );
+   if (loading || isInitialLoading)
+      return (
+         <Layout>
+            <div className="fixed inset-0 flex items-center justify-center bg-white">
+               <Spinner />
+            </div>
+         </Layout>
+      );
 
-   if (error) return (
-      <Layout>
-         <div className="fixed inset-0 flex items-center justify-center">
-            <h1 className="text-red-500">{error}</h1>
-         </div>
-      </Layout>
-   );
+   if (error)
+      return (
+         <Layout>
+            <div className="fixed inset-0 flex items-center justify-center">
+               <p className="text-red-500 text-sm">{error}</p>
+            </div>
+         </Layout>
+      );
 
    return (
       <Layout>
          {toast.show && (
-            <Toast
-               message={toast.message}
-               type={toast.type}
-               onClose={handleCloseToast}
-            />
+            <Toast message={toast.message} type={toast.type} onClose={() => setToast({ show: false, message: "", type: "error" })} />
          )}
-         <div className="container mx-auto px-4 mt-32">
-            <div className="flex flex-col md:flex-row bg-white shadow-lg rounded-xl overflow-hidden">
-               {/* Product Image Section */}
-               <div className="w-full md:w-1/2 bg-gray-100 flex items-center justify-center p-4 relative">
-                  {imageLoading && (
-                     <div className="absolute inset-0 flex justify-center items-center bg-gray-200 bg-opacity-50">
-                        <Spinner size="xl" />
-                     </div>
-                  )}
-                  <ImageMagnifier
-                     src={getImageSrc(product.image)}
-                     alt={product.name}
-                     onLoad={handleImageLoad}
-                     imageLoading={imageLoading}
-                  />
-               </div>
 
-               {/* Product Details Section */}
-               <div className="w-full md:w-1/2 p-6 space-y-4">
-                  <div>
-                     <span className="text-sm text-gray-500 uppercase tracking-wide">
-                        Brand: {product.brand}
-                     </span>
-                     <h1 className="text-2xl md:text-3xl font-bold text-gray-900 mt-2">
+         <div className="min-h-screen bg-[#fafaf9] pt-28 pb-16 px-4">
+            <div className="max-w-5xl mx-auto">
+               <div className="bg-white rounded-2xl overflow-hidden border border-gray-100 shadow-sm flex flex-col md:flex-row">
+
+                  {/* ── Image Panel ─────────────────────────────────────── */}
+                  {/* ── Image Panel ─────────────────────────────────────── */}
+                  <div className="relative w-full md:w-[46%] bg-[#f5f3f0] flex flex-row min-h-[420px]">
+
+                     {/* Vertical thumbnail strip */}
+                     {product?.images && product.images.length > 1 && (
+                        <div className="flex flex-col gap-2 p-3 border-r border-gray-200 items-center justify-center hide-scrollbar overflow-y-auto">
+                           {product.images.map((img, idx) => (
+                              <button
+                                 key={idx}
+                                 onClick={() => setActiveImage(img)}
+                                 className={`relative w-14 h-14 rounded-md overflow-hidden flex-shrink-0 transition-all duration-200 ${(activeImage || product.image) === img
+                                    ? "ring-2 ring-fuchsia-900 ring-offset-1 scale-105"
+                                    : "opacity-60 hover:opacity-100 border border-gray-200"
+                                    }`}
+                              >
+                                 <img
+                                    src={getImageSrc(img)}
+                                    alt={`${product.name} thumbnail ${idx + 1}`}
+                                    className="w-full h-full object-cover"
+                                 />
+                              </button>
+                           ))}
+                        </div>
+                     )}
+
+                     {/* Main image — never resizes regardless of thumbnail presence */}
+                     <div className="relative flex-1 flex items-center justify-center overflow-hidden">
+                        {imageLoading && (
+                           <div className="absolute inset-0 flex items-center justify-center">
+                              <Spinner size="lg" />
+                           </div>
+                        )}
+                        <ImageLightbox
+                           src={getImageSrc(activeImage || product.image)}
+                           alt={product.name}
+                           onLoad={() => setImageLoading(false)}
+                        />
+                     </div>
+
+                  </div>
+
+                  {/* ── Details Panel ───────────────────────────────────── */}
+                  <div className="w-full md:w-[54%] px-7 py-7 flex flex-col">
+
+                     {/* Brand + stock */}
+                     <div className="flex items-center justify-between mb-2">
+                        <span className="text-[10px] uppercase tracking-[0.15em] text-gray-400 font-semibold">
+                           {product.brand}
+                        </span>
+                        <StockBadge inStock={!isOutOfStock} />
+                     </div>
+
+                     {/* Name */}
+                     <h1
+                        className="text-2xl md:text-[1.65rem] leading-snug font-semibold text-gray-900 mb-3"
+                        style={{ fontFamily: "'Playfair Display', Georgia, serif" }}
+                     >
                         {product.name}
                      </h1>
-                  </div>
 
-                  <div className="space-y-2">
-                     <p className="text-gray-600">Color: {product.color}</p>
-                     <p className="text-gray-600">Category: {product.category}</p>
-                     <p className={isOutOfStock ? "text-red-500 font-medium" : "text-gray-600"}>
-                        {isOutOfStock ? "Out of stock" : `In stock: ${product.countInStock}`}
-                     </p>
-                  </div>
-
-                  <SizeSelector />
-
-                  <div className="space-y-1">
-                     <div className={`text-2xl md:text-3xl font-bold text-fuchsia-800 ${isOutOfStock ? "line-through" : ""}`}>
-                        <span className="font-[inter]">₹</span>
-                        <span>{product.price}</span>
+                     {/* Price row — directly under name for visual anchor */}
+                     <div className="flex items-baseline gap-2 mb-4">
+                        <span
+                           className={`text-2xl font-bold tracking-tight ${isOutOfStock ? "text-gray-300 line-through" : "text-fuchsia-900"}`}
+                           style={{ fontFamily: "'Playfair Display', Georgia, serif" }}
+                        >
+                           ₹{product.price}
+                        </span>
+                        {!isOutOfStock && (
+                           <span className="text-xs text-gray-400">+ ₹50 delivery</span>
+                        )}
                      </div>
-                     {!isOutOfStock && (
-                        <p className="text-sm text-gray-500">+<span className="font-[inter]">₹</span>50 for delivery charges</p>
+
+                     <hr className="border-t border-gray-100 mb-4" />
+
+                     {/* Meta grid */}
+                     <div className="grid grid-cols-2 gap-x-4 gap-y-4 mb-4">
+                        {[
+                           { label: "Category", value: product.category },
+                           { label: "Color", value: product.color },
+                           ...(!showSizesForProduct
+                              ? [{ label: "Availability", value: `${product.countInStock} units left` }]
+                              : []),
+                        ].map(({ label, value }) => (
+                           <div key={label} className="flex flex-col gap-1">
+                              <span className="text-[10px] uppercase tracking-widest text-gray-400 font-semibold">{label}</span>
+                              <span className="text-sm font-medium text-gray-800">{value}</span>
+                           </div>
+                        ))}
+                     </div>
+
+                     {/* Size selector */}
+                     {showSizesForProduct && product.sizes && (
+                        <>
+                           <hr className="border-t border-gray-100 mb-4" />
+                           <div className="mb-4">
+                              <p className="text-[10px] uppercase tracking-widest text-gray-400 font-semibold mb-3">
+                                 Select Size
+                              </p>
+                              <div className="flex flex-wrap gap-2">
+                                 {Object.entries(product.sizes).map(([size, count]) => {
+                                    const unavailable = count === 0;
+                                    const active = selectedSize === size;
+                                    return (
+                                       <button
+                                          key={size}
+                                          onClick={() => !unavailable && setSelectedSize(size)}
+                                          disabled={unavailable}
+                                          className={`relative w-12 h-12 rounded-xl text-sm font-semibold transition-all duration-200
+                              ${unavailable
+                                                ? "bg-gray-50 text-gray-300 cursor-not-allowed border border-dashed border-gray-200"
+                                                : active
+                                                   ? "bg-fuchsia-900 text-white border-2 border-fuchsia-900 shadow-md scale-105"
+                                                   : "bg-white text-gray-700 border border-gray-200 hover:border-fuchsia-700 hover:text-fuchsia-800"
+                                             }`}
+                                       >
+                                          {size}
+                                          {unavailable && (
+                                             <span className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                                                <svg className="w-full h-full absolute" viewBox="0 0 48 48">
+                                                   <line x1="8" y1="40" x2="40" y2="8" stroke="#d1d5db" strokeWidth="1.5" />
+                                                </svg>
+                                             </span>
+                                          )}
+                                       </button>
+                                    );
+                                 })}
+                              </div>
+                           </div>
+                        </>
                      )}
+
+                     <hr className="border-t border-gray-100 mb-4" />
+
+                     {/* Wishlist CTA */}
+                     <div className="flex items-center gap-3">
+                        <AnimatedWishlistButton
+                           isInWishlist={isInWishlist}
+                           onToggle={handleWishlistToggle}
+                           disabled={isOutOfStock}
+                        />
+                     </div>
                   </div>
 
-                  <div className="flex flex-col sm:flex-row gap-4">
-                     <AnimatedWishlistButton
-                        isInWishlist={isInWishlist}
-                        onToggle={handleWishlistToggle}
-                        disabled={isOutOfStock}
-                     />
-                  </div>
                </div>
             </div>
          </div>
-
-
       </Layout>
    );
 }

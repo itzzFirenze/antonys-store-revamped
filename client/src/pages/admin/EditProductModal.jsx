@@ -13,10 +13,13 @@ const EditProductModal = ({ isOpen, closeModal, product, showToast }) => {
       color: product?.color || "",
       category: product?.category || "",
       countInStock: product?.countInStock || "",
-      image: product?.image || null,
    };
    const [formData, setFormData] = useState(initialFormData);
-   const [imagePreview, setImagePreview] = useState(product?.image || null);
+   
+   // Handle existing images and new files separately
+   const [existingImages, setExistingImages] = useState(product?.images || (product?.image ? [product.image] : []));
+   const [newFiles, setNewFiles] = useState([]);
+   const [newImagePreviews, setNewImagePreviews] = useState([]);
    const [showSizes, setShowSizes] = useState(false);
    const [sizes, setSizes] = useState({ S: 0, M: 0, L: 0, XL: 0, XXL: 0 });
 
@@ -66,23 +69,27 @@ const EditProductModal = ({ isOpen, closeModal, product, showToast }) => {
    };
 
    const handleImageChange = (e) => {
-      const file = e.target.files[0];
-      if (file) {
-         const reader = new FileReader();
-         reader.onloadend = () => {
-            setImagePreview(reader.result);
-         };
-         reader.readAsDataURL(file);
+      const files = Array.from(e.target.files);
+      if (files.length > 0) {
+         setNewFiles(prev => [...prev, ...files]);
+         files.forEach(file => {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+               setNewImagePreviews(prev => [...prev, reader.result]);
+            };
+            reader.readAsDataURL(file);
+         });
       }
+      e.target.value = null;
    };
 
-   const handleImageDelete = () => {
-      setFormData({ ...formData, image: null });
-      setImagePreview(null);
-      const fileInput = document.getElementById('image');
-      if (fileInput) {
-         fileInput.value = '';
-      }
+   const handleExistingImageDelete = (index) => {
+      setExistingImages(prev => prev.filter((_, i) => i !== index));
+   };
+
+   const handleNewImageDelete = (index) => {
+      setNewFiles(prev => prev.filter((_, i) => i !== index));
+      setNewImagePreviews(prev => prev.filter((_, i) => i !== index));
    };
 
 
@@ -92,7 +99,6 @@ const EditProductModal = ({ isOpen, closeModal, product, showToast }) => {
       setIsUploading(true);
 
       try {
-         const imageFile = e.target.image.files[0];
          const submitData = new FormData();
          
          submitData.append('name', formData.name);
@@ -106,11 +112,13 @@ const EditProductModal = ({ isOpen, closeModal, product, showToast }) => {
             submitData.append('sizes', JSON.stringify(sizes));
          }
 
-         if (imageFile) {
-            submitData.append('image', imageFile);
-         } else if (formData.image) {
-            submitData.append('image', formData.image);
-         }
+         // Append existing images that were kept
+         submitData.append('existingImages', JSON.stringify(existingImages));
+
+         // Append newly selected files
+         newFiles.forEach(file => {
+            submitData.append('images', file);
+         });
 
          const response = await fetch(`${BASE_URL}/api/products/${product._id}`, {
             method: "PUT",
@@ -305,51 +313,75 @@ const EditProductModal = ({ isOpen, closeModal, product, showToast }) => {
                      >
                         Image
                      </label>
-                     <div className="relative flex items-center justify-center w-full h-40 border-2 border-dashed border-gray-300 rounded-lg bg-gray-50 dark:bg-gray-700 dark:border-gray-600">
+                     <div className="relative flex flex-col items-center justify-center w-full min-h-40 border-2 border-dashed border-gray-300 rounded-lg bg-gray-50 dark:bg-gray-700 dark:border-gray-600 p-2">
                         <input
                            type="file"
                            id="image"
                            name="image"
-                           className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                           className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
                            accept="image/*"
+                           multiple
                            onChange={handleImageChange}
                         />
-                        {(imagePreview || formData.image) ? (
-                           <img
-                              src={imagePreview || formData.image}
-                              alt="Preview"
-                              className="absolute inset-0 object-cover w-full h-full rounded-lg"
-                              onError={(e) => {
-                                 e.target.onerror = null;
-                                 e.target.src = '/placeholder-image.jpg';
-                              }}
-                           />
+                        {(existingImages.length > 0 || newImagePreviews.length > 0) ? (
+                           <div className="flex flex-wrap gap-2 w-full z-20 pointer-events-none">
+                              {existingImages.map((src, idx) => (
+                                 <div key={`existing-${idx}`} className="relative w-20 h-20 pointer-events-auto">
+                                    <img
+                                       src={src}
+                                       alt={`Existing ${idx}`}
+                                       className="w-full h-full object-cover rounded-lg"
+                                       onError={(e) => {
+                                          e.target.onerror = null;
+                                          e.target.src = '/placeholder-image.jpg';
+                                       }}
+                                    />
+                                    <button
+                                       type="button"
+                                       onClick={() => handleExistingImageDelete(idx)}
+                                       className="absolute -top-2 -right-2 p-1 text-white bg-red-500 rounded-full hover:bg-red-600 z-30"
+                                    >
+                                       <svg
+                                          xmlns="http://www.w3.org/2000/svg"
+                                          fill="none"
+                                          viewBox="0 0 24 24"
+                                          stroke="currentColor"
+                                          className="w-4 h-4"
+                                       >
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                                       </svg>
+                                    </button>
+                                 </div>
+                              ))}
+                              {newImagePreviews.map((preview, idx) => (
+                                 <div key={`new-${idx}`} className="relative w-20 h-20 pointer-events-auto border-2 border-primary-500 rounded-lg">
+                                    <img
+                                       src={preview}
+                                       alt={`New ${idx}`}
+                                       className="w-full h-full object-cover rounded-lg"
+                                    />
+                                    <button
+                                       type="button"
+                                       onClick={() => handleNewImageDelete(idx)}
+                                       className="absolute -top-2 -right-2 p-1 text-white bg-red-500 rounded-full hover:bg-red-600 z-30"
+                                    >
+                                       <svg
+                                          xmlns="http://www.w3.org/2000/svg"
+                                          fill="none"
+                                          viewBox="0 0 24 24"
+                                          stroke="currentColor"
+                                          className="w-4 h-4"
+                                       >
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                                       </svg>
+                                    </button>
+                                 </div>
+                              ))}
+                           </div>
                         ) : (
                            <span className="text-sm text-gray-500 dark:text-gray-300">
-                              Drag & Drop or Browse
+                              Drag & Drop or Browse (Max 5)
                            </span>
-                        )}
-                        {(imagePreview || formData.image) && (
-                           <button
-                              type="button"
-                              onClick={handleImageDelete}
-                              className="absolute top-2 right-2 p-1 text-white bg-red-500 rounded-full hover:bg-red-600"
-                           >
-                              <svg
-                                 xmlns="http://www.w3.org/2000/svg"
-                                 fill="none"
-                                 viewBox="0 0 24 24"
-                                 stroke="currentColor"
-                                 className="w-5 h-5"
-                              >
-                                 <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    strokeWidth="2"
-                                    d="M6 18L18 6M6 6l12 12"
-                                 />
-                              </svg>
-                           </button>
                         )}
                      </div>
                   </div>
