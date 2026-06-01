@@ -64,21 +64,18 @@ router.post('/', async (req, res) => {
 // ─── Create a manual admin order ────────────────────────────────────────────────
 router.post('/admin-create', async (req, res) => {
    const {
-      productId,
-      size,
       customerName,
       customerEmail,
       address,
       pincode,
       phoneNumber,
       additionalDetails,
-      wantStitched,
-      length, chest, waist, hip, armFit, sleeveLength, sleeveWidth, backNeck, frontNeck
+      orderItems // Expecting an array of selected products
    } = req.body;
 
    try {
-      if (!productId || !customerName || !phoneNumber) {
-         return res.status(400).json({ message: 'Product ID, Customer Name, and Phone Number are required.' });
+      if (!orderItems || !orderItems.length || !customerName || !phoneNumber) {
+         return res.status(400).json({ message: 'Order items, Customer Name, and Phone Number are required.' });
       }
 
       // Fetch guest user
@@ -90,23 +87,23 @@ router.post('/admin-create', async (req, res) => {
          return res.status(500).json({ message: 'Guest user not found in database.' });
       }
 
-      // Pack custom details
+      // Pack custom details and order items
       const customDetails = JSON.stringify({
          customerName,
          customerEmail,
-         additionalDetails: additionalDetails || ''
+         additionalDetails: additionalDetails || '',
+         orderItems
       });
 
       const newOrder = await orderModel.create({
          userId: guestUserId,
-         productId,
-         size,
+         productId: orderItems[0].productId,
+         size: orderItems[0].size || "",
          address: address || 'Not Provided',
          pincode: pincode || '000000',
          phoneNumber,
          additionalDetails: customDetails,
-         wantStitched,
-         length, chest, waist, hip, armFit, sleeveLength, sleeveWidth, backNeck, frontNeck
+         wantStitched: orderItems[0].wantStitched || false,
       });
 
       res.status(201).json({

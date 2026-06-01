@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useOutletContext, useLocation, useNavigate } from "react-router-dom";
 import { productListAction } from "../../Redux/Actions/Product";
@@ -7,6 +7,27 @@ import EditProductModal from "./EditProductModal";
 import DeleteProductModal from "./DeleteProductModal";
 import AddProductModal from "./AddProductModal";
 import Toast from "../../components/Toast";
+
+const CopyableId = ({ id }) => {
+   const [copied, setCopied] = useState(false);
+
+   const handleCopy = () => {
+      navigator.clipboard.writeText(id).then(() => {
+         setCopied(true);
+         setTimeout(() => setCopied(false), 1500);
+      });
+   };
+
+   return (
+      <button
+         onClick={handleCopy}
+         title="Click to copy"
+         className="font-mono text-xs bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors cursor-pointer select-none"
+      >
+         {copied ? "Copied!" : id}
+      </button>
+   );
+};
 
 const ViewProducts = () => {
    const { refreshFlag } = useOutletContext();
@@ -17,101 +38,96 @@ const ViewProducts = () => {
    const { loading, error, products = [] } = productListReducer;
 
    const [searchTerm, setSearchTerm] = useState("");
-   const [currentPage, setCurrentPage] = useState(() => {
-      const params = new URLSearchParams(location.search);
-      return parseInt(params.get('page')) || 1;
-   });
+   const [currentPage, setCurrentPage] = useState(1);
    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
    const [isAddModalOpen, setIsAddModalOpen] = useState(false);
    const [currentProduct, setCurrentProduct] = useState(null);
    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
    const [productToDelete, setProductToDelete] = useState(null);
-   const productsPerPage = 10;
    const [isInitialLoad, setIsInitialLoad] = useState(true);
+   const productsPerPage = 10;
 
    const [toast, setToast] = useState({
       visible: false,
       message: "",
-      type: "success"
+      type: "success",
    });
 
-   // Fetch products
+   // Initialize from URL on mount
    useEffect(() => {
+      const params = new URLSearchParams(location.search);
+      const pageFromUrl = parseInt(params.get("page"));
+      if (pageFromUrl && !isNaN(pageFromUrl)) {
+         setCurrentPage(pageFromUrl);
+      }
       dispatch(productListAction());
-   }, [dispatch, refreshFlag]);
+      setIsInitialLoad(false);
+   }, [dispatch]); // eslint-disable-line react-hooks/exhaustive-deps
 
-   // Filtered products - memoized to prevent unnecessary recalculations
-   const filteredProducts = React.useMemo(() => {
-      const lowerSearch = searchTerm.toLowerCase().replace(/-/g, '');
-      return [...products]
-         .reverse()
-         .filter((product) =>
+   // Fetch on refreshFlag change (skip initial — already fetched above)
+   useEffect(() => {
+      if (!isInitialLoad) {
+         dispatch(productListAction());
+      }
+   }, [refreshFlag]); // eslint-disable-line react-hooks/exhaustive-deps
+
+   const filteredProducts = useMemo(() => {
+      const lowerSearch = searchTerm.toLowerCase().replace(/-/g, "");
+      return [...products].reverse().filter(
+         (product) =>
             product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            (product.productCode && product.productCode.toLowerCase().replace(/-/g, '').includes(lowerSearch)) ||
+            (product.productCode &&
+               product.productCode.toLowerCase().replace(/-/g, "").includes(lowerSearch)) ||
             product.color.toLowerCase().includes(searchTerm.toLowerCase())
-         );
+      );
    }, [products, searchTerm]);
 
    const totalPages = Math.ceil(filteredProducts.length / productsPerPage);
 
-   // Handle page navigation
-   const paginate = useCallback((pageNumber) => {
-      const validatedPage = Math.min(Math.max(1, pageNumber), totalPages || 1);
-      setCurrentPage(validatedPage);
-      navigate(`?page=${validatedPage}`, { replace: true });
-   }, [navigate, totalPages]);
-
-   // Sync with URL on location change and initial load
-   useEffect(() => {
-      const params = new URLSearchParams(location.search);
-      const pageFromUrl = parseInt(params.get('page'));
-      
-      if (isInitialLoad) {
-         if (pageFromUrl && !isNaN(pageFromUrl)) {
-            setCurrentPage(pageFromUrl);
-         }
-         setIsInitialLoad(false);
-      }
-   }, [location.search, isInitialLoad]);
+   const paginate = useCallback(
+      (pageNumber) => {
+         const validatedPage = Math.min(Math.max(1, pageNumber), totalPages || 1);
+         setCurrentPage(validatedPage);
+         navigate(`?page=${validatedPage}`, { replace: true });
+      },
+      [navigate, totalPages]
+   );
 
    // Reset page when searching
    useEffect(() => {
       if (!isInitialLoad && searchTerm) {
          paginate(1);
       }
-   }, [searchTerm, paginate, isInitialLoad]);
+   }, [searchTerm]); // eslint-disable-line react-hooks/exhaustive-deps
 
-   // Validate current page when total pages changes
+   // Clamp page if total pages shrinks
    useEffect(() => {
       if (!isInitialLoad && totalPages > 0 && currentPage > totalPages) {
          paginate(1);
       }
-   }, [totalPages, currentPage, paginate, isInitialLoad]);
+   }, [totalPages]); // eslint-disable-line react-hooks/exhaustive-deps
 
-   // Calculate current products
    const indexOfLastProduct = currentPage * productsPerPage;
    const indexOfFirstProduct = indexOfLastProduct - productsPerPage;
    const currentProducts = filteredProducts.slice(indexOfFirstProduct, indexOfLastProduct);
 
+   // Graceful empty-state display values
+   const showingFrom = filteredProducts.length === 0 ? 0 : indexOfFirstProduct + 1;
+   const showingTo = Math.min(indexOfLastProduct, filteredProducts.length);
+
    const showToast = (message, type = "success") => {
       setToast({ visible: true, message, type });
-      setTimeout(() => {
-         setToast({ visible: false, message: "", type: "success" });
-      }, 3000);
+      setTimeout(() => setToast({ visible: false, message: "", type: "success" }), 3000);
    };
 
-   const closeToast = () => {
-      setToast({ visible: false, message: "", type: "success" });
-   };
+   const closeToast = () => setToast({ visible: false, message: "", type: "success" });
 
    const handleEditClick = (product) => {
       setCurrentProduct(product);
       setIsEditModalOpen(true);
    };
 
-   const handleAddClick = () => {
-      setIsAddModalOpen(true);
-   };
+   const handleAddClick = () => setIsAddModalOpen(true);
 
    const handleDeleteClick = (product) => {
       setProductToDelete(product);
@@ -123,9 +139,7 @@ const ViewProducts = () => {
       setCurrentProduct(null);
    };
 
-   const closeAddModal = () => {
-      setIsAddModalOpen(false);
-   };
+   const closeAddModal = () => setIsAddModalOpen(false);
 
    const closeDeleteModal = () => {
       setIsDeleteModalOpen(false);
@@ -155,133 +169,176 @@ const ViewProducts = () => {
    };
 
    return (
-      <section className="bg-gray-50 dark:bg-gray-900 p-3 sm:p-5">
-         <div className="mx-auto max-w-screen-xl px-4 lg:px-12">
-            <div className="bg-white dark:bg-gray-800 relative shadow-md sm:rounded-lg overflow-hidden">
-               <div className="flex flex-col md:flex-row items-center justify-between space-y-3 md:space-y-0 md:space-x-4 p-4">
-                  <div className="w-full md:w-1/2">
-                     <form className="flex items-center relative" onSubmit={(e) => e.preventDefault()}>
-                        <svg
-                           className="absolute left-3 w-5 h-5 text-gray-400 dark:text-gray-300"
-                           fill="currentColor"
-                           viewBox="0 0 20 20"
-                           xmlns="http://www.w3.org/2000/svg"
-                        >
-                           <path
-                              fillRule="evenodd"
-                              d="M10 2a8 8 0 016.32 12.906l4.387 4.387a1 1 0 01-1.414 1.414l-4.387-4.387A8 8 0 1110 2zm0 2a6 6 0 100 12 6 6 0 000-12z"
-                              clipRule="evenodd"
-                           ></path>
-                        </svg>
+      <>
+         <section className="bg-gray-50 dark:bg-gray-900 p-3 sm:p-5">
+            <div className="mx-auto max-w-screen-xl px-4 lg:px-12">
+               <div className="bg-white dark:bg-gray-800 relative shadow-md sm:rounded-lg overflow-hidden">
+
+                  {/* Search + Add bar */}
+                  <div className="flex flex-col md:flex-row items-center justify-between space-y-3 md:space-y-0 md:space-x-4 p-4">
+                     <div className="w-full md:w-1/2">
                         <input
                            type="text"
-                           className="bg-gray-50 border text-gray-900 text-sm rounded-lg focus:ring-primary-600 focus:border-primary-500 block w-full pl-10 p-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                           placeholder="Search"
+                           className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-xl focus:ring-blue-600 focus:border-blue-600 block w-full p-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:placeholder-gray-400"
+                           placeholder="Search by name, code, or color..."
                            value={searchTerm}
                            onChange={(e) => setSearchTerm(e.target.value)}
                         />
-                     </form>
+                     </div>
+                     <button
+                        onClick={handleAddClick}
+                        className="text-gray-100 bg-primary-600 hover:bg-primary-700 rounded-lg px-4 py-2 transition-colors"
+                     >
+                        Add Product
+                     </button>
                   </div>
 
-                  <button
-                     onClick={handleAddClick}
-                     className="text-gray-100 bg-primary-600 hover:bg-primary-700 rounded-lg px-4 py-2"
-                  >
-                     Add Product
-                  </button>
-               </div>
-
-               {loading ? (
-                  <SpinnerLoading />
-               ) : error ? (
-                  <div className="text-red-500">{error}</div>
-               ) : (
-                  <div className="overflow-x-auto">
-                     <table className="w-full text-sm text-left text-gray-500">
-                        <thead className="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700">
-                           <tr>
-                              <th className="px-4 py-3">Product Code</th>
-                              <th className="px-4 py-3 max-w-xs">Product Name</th>
-                              <th className="px-4 py-3 max-w-6">Brand</th>
-                              <th className="px-4 py-3">Color</th>
-                              <th className="px-4 py-3">Stock</th>
-                              <th className="px-4 py-3">Price</th>
-                              <th className="px-4 py-3">Category</th>
-                              <th className="px-4 py-3">Actions</th>
-                           </tr>
-                        </thead>
-                        <tbody>
-                           {currentProducts.map((product) => (
-                              <tr key={product._id} className="border-b dark:border-gray-700">
-                                 <td className="px-4 py-3 font-medium">{product.productCode || '-'}</td>
-                                 <td className="px-4 py-3 max-w-50">{product.name}</td>
-                                 <td className="px-4 py-3 max-w-40">{product.brand}</td>
-                                 <td className="px-4 py-3">{product.color}</td>
-                                 <td className="px-4 py-3">{product.countInStock}</td>
-                                 <td className="px-4 py-3"><span className="font-[inter]">₹</span>{product.price}</td>
-                                 <td className="px-4 py-3 max-w-40">{product.category}</td>
-                                 <td className="px-4 py-3 min-w-48">
-                                    <button
-                                       onClick={() => handleEditClick(product)}
-                                       className="text-gray-100 bg-blue-600 hover:bg-blue-700 rounded-lg px-3 py-1 mr-2"
-                                    >
-                                       Edit
-                                    </button>
-                                    <button
-                                       onClick={() => handleDeleteClick(product)}
-                                       className="text-gray-100 bg-red-600 hover:bg-red-700 rounded-lg px-3 py-1"
-                                    >
-                                       Delete
-                                    </button>
-                                 </td>
+                  {/* Table content */}
+                  {loading ? (
+                     <div className="flex justify-center items-center min-h-[200px]">
+                        <SpinnerLoading />
+                     </div>
+                  ) : error ? (
+                     <div className="text-red-500 p-4 text-center">{error}</div>
+                  ) : filteredProducts.length === 0 ? (
+                     <div className="text-gray-500 dark:text-gray-400 p-8 text-center">
+                        No products found.
+                     </div>
+                  ) : (
+                     <div className="overflow-x-auto">
+                        <table className="w-full text-sm text-left text-gray-500 dark:text-gray-400">
+                           <thead className="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
+                              <tr>
+                                 <th className="px-4 py-3">Product Code</th>
+                                 <th className="px-4 py-3 max-w-xs">Product Name</th>
+                                 <th className="px-4 py-3">Brand</th>
+                                 <th className="px-4 py-3">Color</th>
+                                 <th className="px-4 py-3">Stock</th>
+                                 <th className="px-4 py-3">Price</th>
+                                 <th className="px-4 py-3">Category</th>
+                                 <th className="px-4 py-3">Actions</th>
                               </tr>
-                           ))}
-                        </tbody>
-                     </table>
-                  </div>
-               )}
+                           </thead>
+                           <tbody>
+                              {currentProducts.map((product) => (
+                                 <tr
+                                    key={product._id}
+                                    className="border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                                 >
+                                    <td className="px-4 py-3">
+                                       {product.productCode ? (
+                                          <CopyableId id={product.productCode} />
+                                       ) : (
+                                          <span className="text-gray-400 dark:text-gray-500 italic">—</span>
+                                       )}
+                                    </td>
+                                    <td className="px-4 py-3 max-w-[12rem] truncate font-medium text-gray-900 dark:text-white">
+                                       {product.name}
+                                    </td>
+                                    <td className="px-4 py-3 max-w-[8rem] truncate">{product.brand}</td>
+                                    <td className="px-4 py-3">{product.color}</td>
+                                    <td className="px-4 py-3">{product.countInStock}</td>
+                                    <td className="px-4 py-3">
+                                       <span className="font-[inter]">₹</span>
+                                       {product.price}
+                                    </td>
+                                    <td className="px-4 py-3 max-w-[10rem] truncate">{product.category}</td>
+                                    <td className="px-4 py-3 min-w-[10rem]">
+                                       <div className="flex items-center gap-2">
+                                          <button
+                                             onClick={() => handleEditClick(product)}
+                                             className="px-3 py-1 rounded-lg text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 transition-colors"
+                                          >
+                                             Edit
+                                          </button>
+                                          <button
+                                             onClick={() => handleDeleteClick(product)}
+                                             className="px-3 py-1 rounded-lg text-xs font-medium text-white bg-red-600 hover:bg-red-700 transition-colors"
+                                          >
+                                             Delete
+                                          </button>
+                                       </div>
+                                    </td>
+                                 </tr>
+                              ))}
+                           </tbody>
+                        </table>
+                     </div>
+                  )}
 
-               <nav className="flex justify-between items-center p-4" aria-label="Table navigation">
-                  <span>
-                     Showing{" "}
-                     <strong>
-                        {indexOfFirstProduct + 1}-{Math.min(indexOfLastProduct, filteredProducts.length)}
-                     </strong>{" "}
-                     of <strong>{filteredProducts.length}</strong>
-                  </span>
-                  <ul className="inline-flex items-center">
-                     <li>
-                        <button
-                           onClick={() => paginate(currentPage - 1)}
-                           disabled={currentPage === 1}
-                           className="px-3 py-1 disabled:opacity-50"
-                        >
-                           Previous
-                        </button>
-                     </li>
-                     {Array.from({ length: totalPages }).map((_, index) => (
-                        <li key={index}>
-                           <button
-                              onClick={() => paginate(index + 1)}
-                              className={`px-3 py-1 ${currentPage === index + 1 ? "bg-blue-600 text-gray-100" : ""}`}
-                           >
-                              {index + 1}
-                           </button>
-                        </li>
-                     ))}
-                     <li>
-                        <button
-                           onClick={() => paginate(currentPage + 1)}
-                           disabled={currentPage === totalPages}
-                           className="px-3 py-1 disabled:opacity-50"
-                        >
-                           Next
-                        </button>
-                     </li>
-                  </ul>
-               </nav>
+                  {/* Pagination */}
+                  <nav
+                     className="flex flex-col sm:flex-row justify-between items-center gap-3 p-4 border-t dark:border-gray-700"
+                     aria-label="Table navigation"
+                  >
+                     <span className="text-sm text-gray-500 dark:text-gray-400">
+                        Showing{" "}
+                        <strong className="text-gray-900 dark:text-white">
+                           {showingFrom}–{showingTo}
+                        </strong>{" "}
+                        of{" "}
+                        <strong className="text-gray-900 dark:text-white">
+                           {filteredProducts.length}
+                        </strong>{" "}
+                        products
+                     </span>
+
+                     {totalPages > 1 && (
+                        <ul className="inline-flex items-center gap-1 text-sm">
+                           <li>
+                              <button
+                                 onClick={() => paginate(currentPage - 1)}
+                                 disabled={currentPage === 1}
+                                 className="px-3 py-1 rounded border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                              >
+                                 ← Prev
+                              </button>
+                           </li>
+
+                           {Array.from({ length: totalPages }).map((_, index) => {
+                              const page = index + 1;
+                              const isEdge = page === 1 || page === totalPages;
+                              const isNearCurrent = Math.abs(page - currentPage) <= 1;
+                              if (!isEdge && !isNearCurrent) {
+                                 if (page === 2 || page === totalPages - 1) {
+                                    return (
+                                       <li key={index}>
+                                          <span className="px-2 py-1 text-gray-400">…</span>
+                                       </li>
+                                    );
+                                 }
+                                 return null;
+                              }
+                              return (
+                                 <li key={index}>
+                                    <button
+                                       onClick={() => paginate(page)}
+                                       className={`px-3 py-1 rounded border transition-colors ${currentPage === page
+                                          ? "bg-blue-600 text-white border-blue-600"
+                                          : "border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
+                                          }`}
+                                    >
+                                       {page}
+                                    </button>
+                                 </li>
+                              );
+                           })}
+
+                           <li>
+                              <button
+                                 onClick={() => paginate(currentPage + 1)}
+                                 disabled={currentPage === totalPages}
+                                 className="px-3 py-1 rounded border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                              >
+                                 Next →
+                              </button>
+                           </li>
+                        </ul>
+                     )}
+                  </nav>
+               </div>
             </div>
-         </div>
+         </section>
 
          {isAddModalOpen && (
             <AddProductModal
@@ -298,6 +355,7 @@ const ViewProducts = () => {
                isOpen={isEditModalOpen}
                closeModal={closeEditModal}
                product={currentProduct}
+               onSuccess={handleEditSuccess}
                showToast={showToast}
             />
          )}
@@ -306,17 +364,14 @@ const ViewProducts = () => {
             isOpen={isDeleteModalOpen}
             closeModal={closeDeleteModal}
             product={productToDelete}
+            onSuccess={handleDeleteSuccess}
             showToast={showToast}
          />
 
          {toast.visible && (
-            <Toast
-               message={toast.message}
-               type={toast.type}
-               onClose={closeToast}
-            />
+            <Toast message={toast.message} type={toast.type} onClose={closeToast} />
          )}
-      </section>
+      </>
    );
 };
 

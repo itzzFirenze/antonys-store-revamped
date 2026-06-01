@@ -26,12 +26,18 @@ userRoute.post('/login', asyncHandler(async (req, res) => {
 
       const token = generateToken({ _id: user.id, name: user.name, email: user.email, isAdmin: user.is_admin });
 
+      res.cookie("jwt", token, {
+         httpOnly: true,
+         secure: process.env.NODE_ENV === "production",
+         sameSite: "strict",
+         maxAge: 30 * 24 * 60 * 60 * 1000,
+      });
+
       res.json({
          _id:       user.id,
          name:      user.name,
          email:     user.email,
          isAdmin:   user.is_admin,
-         token,
          mobNum:    user.mob_num,
          address:   user.address,
          pincode:   user.pincode,
@@ -50,7 +56,12 @@ userRoute.post('/login', asyncHandler(async (req, res) => {
 // ─── Logout ───────────────────────────────────────────────────────────────────
 // Supabase is stateless — JWT invalidation is handled client-side.
 // This endpoint is kept for API compatibility.
-userRoute.post('/logout', protect, async (req, res) => {
+userRoute.post('/logout', async (req, res) => {
+   res.clearCookie("jwt", {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+   });
    res.json({ message: 'Logged out successfully' });
 });
 
@@ -162,12 +173,18 @@ userRoute.post('/verify-code', async (req, res) => {
 
       const token = generateToken({ _id: user.id, name: user.name, email: user.email, isAdmin: user.is_admin });
 
+      res.cookie("jwt", token, {
+         httpOnly: true,
+         secure: process.env.NODE_ENV === "production",
+         sameSite: "strict",
+         maxAge: 30 * 24 * 60 * 60 * 1000,
+      });
+
       res.status(201).json({
          _id:       user.id,
          name:      user.name,
          email:     user.email,
          isAdmin:   user.is_admin,
-         token,
          createdAt: user.created_at,
       });
    } catch (error) {
@@ -195,12 +212,18 @@ userRoute.post('/', asyncHandler(async (req, res) => {
    if (user) {
       const token = generateToken({ _id: user.id, name: user.name, email: user.email, isAdmin: user.is_admin });
 
+      res.cookie("jwt", token, {
+         httpOnly: true,
+         secure: process.env.NODE_ENV === "production",
+         sameSite: "strict",
+         maxAge: 30 * 24 * 60 * 60 * 1000,
+      });
+
       res.status(201).json({
          _id:       user.id,
          name:      user.name,
          email:     user.email,
          isAdmin:   user.is_admin,
-         token,
          createdAt: user.created_at,
       });
    } else {
@@ -234,6 +257,13 @@ userRoute.put('/profile', protect, asyncHandler(async (req, res) => {
       isAdmin: updatedUser.is_admin,
    });
 
+   res.cookie("jwt", token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+      maxAge: 30 * 24 * 60 * 60 * 1000,
+   });
+
    res.json({
       _id:       updatedUser.id,
       name:      updatedUser.name,
@@ -242,7 +272,6 @@ userRoute.put('/profile', protect, asyncHandler(async (req, res) => {
       address:   updatedUser.address,
       pincode:   updatedUser.pincode,
       isAdmin:   updatedUser.is_admin,
-      token,
       createdAt: updatedUser.created_at,
    });
 }));

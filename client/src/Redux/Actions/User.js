@@ -63,15 +63,11 @@ export const userLoginAction = (email, password) => async (dispatch) => {
 
       const { data } = await axios.post(`${BASE_URL}/api/users/login`, { email, password }, config);
 
-      // Store token in localStorage directly
-      localStorage.setItem("accessToken", data.token);
-
       localStorage.setItem("userInfo", JSON.stringify({
          _id: data._id,
          name: data.name,
          email: data.email,
          isAdmin: data.isAdmin,
-         token: data.token,  // Keep for consistency
          mobNum: data.mobNum,
          address: data.address,
          pincode: data.pincode
@@ -98,8 +94,12 @@ export const clearLoginError = () => ({
 
 // User logout action
 export const userLogoutAction = () => async (dispatch) => {
+   try {
+      await axios.post(`${BASE_URL}/api/users/logout`);
+   } catch (error) {
+      console.error(error);
+   }
    localStorage.removeItem("userInfo");
-   localStorage.removeItem("accessToken");
    dispatch({ type: USER_LOGOUT });
    dispatch({ type: USER_LIST_RESET });
    window.location.reload();
@@ -205,16 +205,12 @@ export const verifyCodeAndRegisterAction = (email, code, name, password) => asyn
          { email, code, name, password },
          config
       );
-      // Store the token consistently
-      const token = data.token;
-      localStorage.setItem("accessToken", token);
-      // Store user info with the token
+      // Store user info without the token
       const userInfo = {
-         _id: data._id,  // Changed from *id to _id
+         _id: data._id,
          name: data.name,
          email: data.email,
-         isAdmin: data.isAdmin,
-         token: token
+         isAdmin: data.isAdmin
       };
       localStorage.setItem("userInfo", JSON.stringify(userInfo));
       dispatch({
@@ -253,16 +249,12 @@ export const userRegisterAction = (name, email, password) => async (dispatch) =>
          { name, email, password },
          config
       );
-      // Store the token consistently
-      const token = data.token;
-      localStorage.setItem("accessToken", token);
-      // Store user info with the token
+      // Store user info without the token
       const userInfo = {
-         _id: data._id,  // Changed from *id to _id
+         _id: data._id,
          name: data.name,
          email: data.email,
-         isAdmin: data.isAdmin,
-         token: token
+         isAdmin: data.isAdmin
       };
       localStorage.setItem("userInfo", JSON.stringify(userInfo));
       dispatch({
@@ -286,27 +278,7 @@ export const userListAction = () => async (dispatch) => {
    try {
       dispatch({ type: USER_LIST_REQUEST });
 
-      // Get token from userInfo if accessToken is not found
-      let token = localStorage.getItem("accessToken");
-      if (!token) {
-         const userInfo = JSON.parse(localStorage.getItem("userInfo"));
-         token = userInfo?.token;
-
-         // Store it in accessToken if found
-         if (token) {
-            localStorage.setItem("accessToken", token);
-         } else {
-            throw new Error("No authentication token found");
-         }
-      }
-
-      const config = {
-         headers: {
-            Authorization: `Bearer ${token}`,
-         },
-      };
-
-      const { data } = await axios.get(`${BASE_URL}/api/users`, config);
+      const { data } = await axios.get(`${BASE_URL}/api/users`);
 
       dispatch({ type: USER_LIST_SUCCESS, payload: data });
    } catch (error) {
@@ -332,17 +304,11 @@ export const toggleAdminAction = (userId, isAdmin) => async (dispatch) => {
    try {
       dispatch({ type: USER_ADMIN_TOGGLE_REQUEST });
 
-      const accessToken = localStorage.getItem("accessToken");
-      if (!accessToken) {
-         throw new Error("No authentication token found");
-      }
-
       const config = {
          method: 'put',
          url: `${BASE_URL}/api/users/${userId}`,
          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${accessToken}`
+            'Content-Type': 'application/json'
          },
          data: { isAdmin }
       };
@@ -381,17 +347,9 @@ export const deleteUserAction = (userId) => async (dispatch) => {
    try {
       dispatch({ type: USER_DELETE_REQUEST });
 
-      const accessToken = localStorage.getItem("accessToken");
-      if (!accessToken) {
-         throw new Error("No authentication token found");
-      }
-
       const config = {
          method: 'delete',
          url: `${BASE_URL}/api/users/${userId}`,
-         headers: {
-            'Authorization': `Bearer ${accessToken}`
-         }
       };
 
       try {
@@ -437,25 +395,11 @@ export const updateUserProfileAction = (userData) => async (dispatch) => {
    try {
       dispatch({ type: USER_PROFILE_UPDATE_REQUEST });
 
-      // First try to get token from localStorage
-      let token = localStorage.getItem("accessToken");
-
-      // If not found in localStorage, try to get from userInfo
-      if (!token) {
-         const userInfo = JSON.parse(localStorage.getItem("userInfo"));
-         token = userInfo?.token;
-      }
-
-      if (!token) {
-         throw new Error("No authentication token found");
-      }
-
       const config = {
          method: 'put',
          url: `${BASE_URL}/api/users/profile`,
          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`
+            "Content-Type": "application/json"
          },
          data: userData
       };
@@ -465,8 +409,7 @@ export const updateUserProfileAction = (userData) => async (dispatch) => {
       // Update user info in localStorage and state
       const updatedUserInfo = {
          ...JSON.parse(localStorage.getItem("userInfo")),
-         ...data,
-         token  // Maintain the token
+         ...data
       };
 
       localStorage.setItem("userInfo", JSON.stringify(updatedUserInfo));
@@ -555,33 +498,20 @@ export const clearPasswordResetError = () => ({
 
 
 // Change password
-export const changePasswordAction = (passwords) => async (dispatch, getState) => {
+export const changePasswordAction = (passwords) => async (dispatch) => {
    try {
       dispatch({ type: 'PASSWORD_CHANGE_REQUEST' });
 
-      const { userLoginReducer: { userInfo } } = getState();
-
-      if (!userInfo?.token) {
-         throw new Error('Authentication token is missing');
-      }
-
-      const response = await fetch(`${BASE_URL}/api/users/change-password`, {
-         method: 'PUT',
+      const config = {
          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${userInfo.token}`
-         },
-         body: JSON.stringify({
-            currentPassword: passwords.currentPassword,
-            newPassword: passwords.newPassword
-         }),
-      });
+            'Content-Type': 'application/json'
+         }
+      };
 
-      const data = await response.json();
-
-      if (!response.ok) {
-         throw new Error(data.message || 'Failed to change password');
-      }
+      await axios.put(`${BASE_URL}/api/users/change-password`, {
+         currentPassword: passwords.currentPassword,
+         newPassword: passwords.newPassword
+      }, config);
 
       dispatch({ type: 'PASSWORD_CHANGE_SUCCESS' });
       return true;
@@ -593,7 +523,7 @@ export const changePasswordAction = (passwords) => async (dispatch, getState) =>
 
       dispatch({
          type: 'PASSWORD_CHANGE_FAIL',
-         payload: error.message
+         payload: error.response?.data?.message || error.message
       });
 
       throw error;

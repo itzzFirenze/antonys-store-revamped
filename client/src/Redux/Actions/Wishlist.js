@@ -6,12 +6,9 @@ export const addToWishlist = (productId) => async (dispatch, getState) => {
     try {
         dispatch({ type: "ADD_TO_WISHLIST_REQUEST" });
 
-        const { userLogin: { userInfo } } = getState();
-
         const config = {
             headers: {
                 "Content-Type": "application/json",
-                Authorization: `Bearer ${userInfo.token}`,
             },
         };
 
@@ -39,15 +36,7 @@ export const fetchWishlist = () => async (dispatch, getState) => {
     try {
         dispatch({ type: "FETCH_WISHLIST_REQUEST" });
 
-        const { userLogin: { userInfo } } = getState();
-
-        const config = {
-            headers: {
-                Authorization: `Bearer ${userInfo.token}`,
-            },
-        };
-
-        const { data } = await axios.get(`/api/wishlist`, config);
+        const { data } = await axios.get(`/api/wishlist`);
 
         dispatch({ type: "FETCH_WISHLIST_SUCCESS", payload: data });
     } catch (error) {
@@ -66,15 +55,7 @@ export const removeFromWishlist = (productId) => async (dispatch, getState) => {
     try {
         dispatch({ type: "REMOVE_FROM_WISHLIST_REQUEST" });
 
-        const { userLogin: { userInfo } } = getState();
-
-        const config = {
-            headers: {
-                Authorization: `Bearer ${userInfo.token}`,
-            },
-        };
-
-        await axios.delete(`/api/wishlist/remove/${productId}`, config);
+        await axios.delete(`/api/wishlist/remove/${productId}`);
 
         dispatch({ type: "REMOVE_FROM_WISHLIST_SUCCESS", payload: productId });
     } catch (error) {

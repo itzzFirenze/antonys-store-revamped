@@ -44,6 +44,9 @@ function toClientShape(row) {
             result.user = { name: parsed.customerName, email: parsed.customerEmail || 'N/A' };
             result.additionalDetails = parsed.additionalDetails || '';
          }
+         if (parsed.orderItems) {
+            result.orderItems = parsed.orderItems;
+         }
       }
    } catch(e) {}
 

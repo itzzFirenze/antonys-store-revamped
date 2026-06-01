@@ -5,9 +5,9 @@ const userModel = require('../models/userModel');
 const protect = asyncHandler(async (req, res, next) => {
    let token;
 
-   if (req.headers.authorization?.startsWith('Bearer')) {
+   if (req.cookies && req.cookies.jwt) {
       try {
-         token = req.headers.authorization.split(' ')[1];
+         token = req.cookies.jwt;
          const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
          // Look up user in Supabase; exclude sensitive fields by not including password

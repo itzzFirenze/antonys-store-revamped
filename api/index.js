@@ -5,12 +5,14 @@ const dotenv = require('dotenv');
 const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
+const cookieParser = require('cookie-parser');
 
 dotenv.config();
 
 const PORT = process.env.PORT || 5000;
 
 app.use(helmet());
+app.use(cookieParser());
 
 const allowedOrigins = process.env.ALLOWED_ORIGINS
    ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim())
