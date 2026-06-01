@@ -1,0 +1,94 @@
+#root {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 2rem;
+  text-align: center;
+}
+
+.logo {
+  height: 6em;
+  padding: 1.5em;
+  will-change: filter;
+  transition: filter 300ms;
+}
+.logo:hover {
+  filter: drop-shadow(0 0 2em #646cffaa);
+}
+.logo.react:hover {
+  filter: drop-shadow(0 0 2em #61dafbaa);
+}
+
+@keyframes logo-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  a:nth-of-type(2) .logo {
+    animation: logo-spin infinite 20s linear;
+  }
+}
+
+.card {
+  padding: 2em;
+}
+
+.read-the-docs {
+  color: #888;
+}
+
+@media (max-width: 768px) {
+   .flex-wrap {
+      display: flex;
+      flex-direction: column;
+   }
+}
+
+.dropdown-container {
+   max-width: 100%; /* Limit the width */
+   overflow-x: hidden; /* Prevent horizontal overflow */
+   word-wrap: break-word; /* Ensure text inside wraps */
+}
+
+/* Custom fade-in animation */
+@keyframes fadeIn {
+   from {
+     opacity: 0;
+   }
+   to {
+     opacity: 1;
+   }
+}
+
+.animated.fadeIn {
+   animation-name: fadeIn;
+   animation-duration: 1s; /* Adjust the speed here */
+   animation-timing-function: ease-out;
+   animation-delay: 0.5s; /* Delay before the animation starts */
+}
+
+ /* Animation for the button */
+.wishlist-button {
+   transition: all 0.3s ease-in-out;
+   transform-origin: center;
+ }
+ 
+ /* Add subtle scaling effect on click */
+ .wishlist-button:active {
+   transform: scale(0.95);
+ }
+
+ /* Heart icon animation */
+.heart-icon {
+   transition: transform 0.3s ease-in-out;
+ }
+ 
+ .heart-icon.scale {
+   transform: scale(1.2);
+ }
+
+ 
