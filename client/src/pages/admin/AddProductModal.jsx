@@ -34,16 +34,11 @@ const AddProductModal = ({ isOpen, closeModal, showToast }) => {
    };
 
    const handleSizeChange = (size, value) => {
-      const numValue = parseInt(value) || 0;
-      console.log(`Setting ${size} to ${numValue}`);
-      setSizes(prev => {
-         const newSizes = {
-            ...prev,
-            [size]: numValue
-         };
-         console.log('New sizes state:', newSizes);
-         return newSizes;
-      });
+      const numValue = value === "" ? 0 : Math.max(0, parseInt(value, 10));
+      setSizes(prev => ({
+         ...prev,
+         [size]: numValue
+      }));
    };
 
    const handleImageChange = (e) => {

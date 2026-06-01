@@ -112,8 +112,6 @@ const EditProductModal = ({ isOpen, closeModal, product, showToast }) => {
             submitData.append('image', formData.image);
          }
 
-         console.log("Sending update data to API"); 
-
          const response = await fetch(`${BASE_URL}/api/products/${product._id}`, {
             method: "PUT",
             body: submitData
@@ -125,11 +123,6 @@ const EditProductModal = ({ isOpen, closeModal, product, showToast }) => {
          }
 
          const updatedProduct = await response.json();
-         console.log("API response:", updatedProduct); // Add logging
-
-         if (!updatedProduct.image) {
-            console.warn("Product image not updated properly in response.");
-         }
 
          refreshProducts();
          showToast('Product updated successfully!', 'success');
