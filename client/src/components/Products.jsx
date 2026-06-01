@@ -101,7 +101,7 @@ const Products = () => {
       return string.charAt(0).toUpperCase() + string.slice(1);
    };
 
-   const filteredProducts = [...products]
+   const filteredProducts = (Array.isArray(products) ? [...products] : [])
       .reverse()
       .filter((product) =>
          (selectedCategory.length === 0 || selectedCategory.includes(product.category)) &&

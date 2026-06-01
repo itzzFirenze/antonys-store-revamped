@@ -1,35 +1,34 @@
-const express = require("express");
+const express = require('express');
 const productRoute = express.Router();
-const asyncHandler = require("express-async-handler");
-const Product = require("../models/product");
-const multer = require("multer");
-const path = require("path");
+const asyncHandler = require('express-async-handler');
+const productModel = require('../models/productModel');
+const multer = require('multer');
+const path = require('path');
+const supabase = require('../supabase');
 
 
-// Multer configuration
-const multerConfig = multer({
+// ─── Multer configuration ─────────────────────────────────────────────────────
+const upload = multer({
    storage: multer.memoryStorage(),
-   limits: { fileSize: 2 * 1024 * 1024 }, // 2MB
+   limits: { fileSize: 10 * 1024 * 1024 }, // 2MB
    fileFilter: (req, file, cb) => {
-      if (file.mimetype.startsWith("image/")) {
+      if (file.mimetype.startsWith('image/')) {
          cb(null, true);
       } else {
-         cb(new Error("Only image files are allowed!"), false);
+         cb(new Error('Only image files are allowed!'), false);
       }
    },
 });
 
-const upload = multer(multerConfig);
+
+// ─── Serve uploaded files (kept for backward compat) ──────────────────────────
+productRoute.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
 
-// Serve uploaded files
-productRoute.use("/uploads", express.static(path.join(__dirname, "../uploads")));
-
-
-// Get all categories
+// ─── Get all categories ───────────────────────────────────────────────────────
 productRoute.get('/categories', async (req, res) => {
    try {
-      const categories = await Product.distinct('category');
+      const categories = await productModel.distinctCategories();
       res.status(200).json(categories);
    } catch (error) {
       res.status(500).json({ error: 'Failed to fetch categories' });
@@ -37,10 +36,10 @@ productRoute.get('/categories', async (req, res) => {
 });
 
 
-// Get all colors
+// ─── Get all colors ───────────────────────────────────────────────────────────
 productRoute.get('/colors', async (req, res) => {
    try {
-      const colors = await Product.distinct('color');
+      const colors = await productModel.distinctColors();
       res.status(200).json(colors);
    } catch (error) {
       res.status(500).json({ error: 'Failed to fetch colors' });
@@ -48,62 +47,107 @@ productRoute.get('/colors', async (req, res) => {
 });
 
 
-// Get all products
-productRoute.get(
-   "/",
-   asyncHandler(async (req, res) => {
-      const products = await Product.find({});
-      res.json(products);
-   })
-);
+// ─── Get all products ─────────────────────────────────────────────────────────
+productRoute.get('/', asyncHandler(async (req, res) => {
+   const products = await productModel.findAll();
+   res.json(products.map(productModel.toClientShape));
+}));
 
 
-// Get a product by ID
-productRoute.get(
-   "/:id",
-   asyncHandler(async (req, res) => {
-      const product = await Product.findById(req.params.id);
-      if (!product) {
-         res.status(404).json({ message: "Product not found!" });
-         return;
+// ─── Get product by ID ────────────────────────────────────────────────────────
+productRoute.get('/:id', asyncHandler(async (req, res) => {
+   const product = await productModel.findById(req.params.id);
+   if (!product) {
+      return res.status(404).json({ message: 'Product not found!' });
+   }
+   res.json(productModel.toClientShape(product));
+}));
+
+
+// ─── Add a product ────────────────────────────────────────────────────────────
+productRoute.post('/', upload.single('image'), asyncHandler(async (req, res) => {
+   const { name, brand, price, color, countInStock, category, image: imageUrl, sizes } = req.body;
+
+   if (!name || !brand || !price || !color || !countInStock || !category) {
+      return res.status(400).json({ message: 'All fields are required.' });
+   }
+
+   let finalImage;
+   if (req.file) {
+      const fileName = `${Date.now()}-${req.file.originalname.replace(/[^a-zA-Z0-9.-]/g, '')}`;
+      const { data, error } = await supabase.storage
+         .from('products')
+         .upload(`public/${fileName}`, req.file.buffer, {
+            contentType: req.file.mimetype,
+            upsert: false
+         });
+
+      if (error) {
+         console.error('Supabase upload error:', error);
+         return res.status(500).json({ message: 'Image upload failed' });
       }
-      res.json(product);
-   })
-);
+
+      const { data: { publicUrl } } = supabase.storage.from('products').getPublicUrl(`public/${fileName}`);
+      finalImage = publicUrl;
+   } else if (imageUrl) {
+      finalImage = imageUrl;
+   } else {
+      return res.status(400).json({ message: 'Image is required (either as file or URL).' });
+   }
+
+   const parsedSizes = sizes
+      ? (typeof sizes === 'string' ? JSON.parse(sizes) : sizes)
+      : { S: 0, M: 0, L: 0, XL: 0, XXL: 0 };
+
+   const savedProduct = await productModel.create({
+      name,
+      brand,
+      price: Number(price),
+      color,
+      countInStock: Number(countInStock),
+      category,
+      image: finalImage,
+      sizes: parsedSizes,
+   });
+
+   res.status(201).json(productModel.toClientShape(savedProduct));
+}));
 
 
-// Add a product with an image
-productRoute.post(
-   "/",
-   upload.single("image"),
-   asyncHandler(async (req, res) => {
-      const { name, brand, price, color, countInStock, category, image: imageUrl, sizes } = req.body;
+// ─── Update a product ─────────────────────────────────────────────────────────
+productRoute.put('/:id', upload.single('image'), asyncHandler(async (req, res) => {
+   try {
+      const { name, brand, price, color, countInStock, category, sizes, image } = req.body;
 
-      if (!name || !brand || !price || !color || !countInStock || !category) {
-         res.status(400).json({ message: "All fields are required." });
-         return;
+      const existingProduct = await productModel.findById(req.params.id);
+      if (!existingProduct) {
+         return res.status(404).json({ message: 'Product not found' });
       }
 
-      let finalImage;
-
-      // Check if we have a direct file upload
+      let finalImage = image;
       if (req.file) {
-         const imageBuffer = req.file.buffer;
-         finalImage = imageBuffer.toString("base64");
+         const fileName = `${Date.now()}-${req.file.originalname.replace(/[^a-zA-Z0-9.-]/g, '')}`;
+         const { data, error } = await supabase.storage
+            .from('products')
+            .upload(`public/${fileName}`, req.file.buffer, {
+               contentType: req.file.mimetype,
+               upsert: false
+            });
+
+         if (error) {
+            console.error('Supabase upload error:', error);
+            return res.status(500).json({ message: 'Image upload failed' });
+         }
+
+         const { data: { publicUrl } } = supabase.storage.from('products').getPublicUrl(`public/${fileName}`);
+         finalImage = publicUrl;
       }
-      // Check if we have an image URL
-      else if (imageUrl) {
-         finalImage = imageUrl;
-      } else {
-         res.status(400).json({ message: "Image is required (either as file or URL)." });
-         return;
-      }
 
-      const parsedSizes = sizes || { S: 0, M: 0, L: 0, XL: 0, XXL: 0 };
+      const parsedSizes = sizes
+         ? (typeof sizes === 'string' ? JSON.parse(sizes) : sizes)
+         : undefined;
 
-
-      // Create new product
-      const newProduct = new Product({
+      const updatedProduct = await productModel.update(req.params.id, {
          name,
          brand,
          price,
@@ -114,107 +158,48 @@ productRoute.post(
          sizes: parsedSizes,
       });
 
-      const savedProduct = await newProduct.save();
-      res.status(201).json(savedProduct);
-   })
-);
-
-
-// Update a product by ID
-productRoute.put('/:id', async (req, res) => {
-   try {
-      const productId = req.params.id;
-      const { name, brand, price, color, countInStock, category, sizes, image } = req.body;
-
-      // Find the existing product
-      const existingProduct = await Product.findById(productId);
-      if (!existingProduct) {
-         return res.status(404).json({ message: 'Product not found' });
-      }
-
-      // Create update object
-      const updateFields = {
-         name,
-         brand,
-         price,
-         color,
-         countInStock,
-         category,
-         image
-      };
-
-      // Handle sizes update
-      if (sizes !== undefined) {
-         updateFields.sizes = sizes;
-      }
-
-      const updateOperation = sizes === undefined
-         ? { $set: updateFields, $unset: { sizes: '' } }
-         : { $set: updateFields };
-
-      // Update the product
-      const updatedProduct = await Product.findByIdAndUpdate(
-         productId,
-         updateOperation,
-         { new: true, runValidators: true }
-      );
-
-      res.json(updatedProduct);
+      res.json(productModel.toClientShape(updatedProduct));
    } catch (error) {
       console.error('Update error:', error);
       res.status(500).json({ message: error.message });
    }
-});
+}));
 
 
-// Delete a product by ID
-productRoute.delete(
-   "/:id",
-   asyncHandler(async (req, res) => {
-      const productId = req.params.id;
+// ─── Delete a product ─────────────────────────────────────────────────────────
+productRoute.delete('/:id', asyncHandler(async (req, res) => {
+   const product = await productModel.findById(req.params.id);
 
-      // Find and delete the product
-      const deletedProduct = await Product.findByIdAndDelete(productId);
+   if (!product) {
+      return res.status(404).json({ message: 'Product not found!' });
+   }
 
-      if (!deletedProduct) {
-         return res.status(404).json({ message: "Product not found!" });
+   await productModel.deleteById(req.params.id);
+   res.status(200).json({ message: 'Product deleted successfully' });
+}));
+
+
+// ─── Decrement product quantity ───────────────────────────────────────────────
+productRoute.put('/decrease-quantity/:id', asyncHandler(async (req, res) => {
+   const { quantity, size, category } = req.body;
+
+   try {
+      const updatedProduct = await productModel.decreaseQuantity(
+         req.params.id,
+         Number(quantity) || 1,
+         size,
+         category
+      );
+
+      if (!updatedProduct) {
+         return res.status(404).json({ message: 'Product not found or size not available' });
       }
 
-      res.status(200).json({ message: "Product deleted successfully" });
-   })
-);
-
-
-// Decrement the product count by 1 
-productRoute.put(
-   "/decrease-quantity/:id",
-   asyncHandler(async (req, res) => {
-      const productId = req.params.id;
-      const { quantity, size, category } = req.body;
-
-      try {
-         const product = await Product.findById(productId);
-         if (!product) {
-            return res.status(404).json({ message: "Product not found" });
-         }
-
-         if ((category === "Ready-made churidar" || category === "Leggings/Pants") && size) {
-            if (!product.sizes || !product.sizes[size]) {
-               return res.status(400).json({ message: "Size not found for this product" });
-            }
-
-            product.sizes[size] = Math.max(0, product.sizes[size] - quantity);
-         } else {
-            product.countInStock = Math.max(0, product.countInStock - quantity);
-         }
-
-         const updatedProduct = await product.save();
-         res.json(updatedProduct);
-      } catch (error) {
-         res.status(500).json({ message: "Error updating product quantity", error: error.message });
-      }
-   })
-);
+      res.json(productModel.toClientShape(updatedProduct));
+   } catch (error) {
+      res.status(500).json({ message: 'Error updating product quantity', error: error.message });
+   }
+}));
 
 
 module.exports = productRoute;

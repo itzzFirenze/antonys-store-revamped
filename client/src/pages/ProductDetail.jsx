@@ -5,7 +5,6 @@ import { useEffect, useState } from "react";
 import { productAction } from "../Redux/Actions/Product";
 import { Spinner } from "flowbite-react";
 import AnimatedWishlistButton from "../components/animatedWishButton";
-import OrderModal from "../components/OrderModal";
 import axios from "axios";
 import Toast from "../components/Toast";
 import { BASE_URL } from "../Redux/Constants/BASE_URL";
@@ -86,7 +85,6 @@ function ProductDetail() {
 
    const [imageLoading, setImageLoading] = useState(true);
    const [isInWishlist, setIsInWishlist] = useState(false);
-   const [showOrderModal, setShowOrderModal] = useState(false);
    const [isInitialLoading, setIsInitialLoading] = useState(true);
    const [selectedSize, setSelectedSize] = useState(null);
 
@@ -172,17 +170,6 @@ function ProductDetail() {
       setSelectedSize(size);
    };
 
-   const handleOrderViaWhatsApp = () => {
-      if (!userInfo) {
-         showToast('Please log in to place an order');
-         return;
-      }
-      if (showSizesForProduct && !selectedSize) {
-         showToast('Please select a size before ordering');
-         return;
-      }
-      setShowOrderModal(true);
-   };
 
    const handleCloseToast = () => {
       setToast({ show: false, message: '', type: 'error' });
@@ -310,36 +297,12 @@ function ProductDetail() {
                         onToggle={handleWishlistToggle}
                         disabled={isOutOfStock}
                      />
-                     <button
-                        onClick={handleOrderViaWhatsApp}
-                        disabled={isOutOfStock}
-                        className={`flex items-center justify-center space-x-2 text-white font-bold py-3 px-6 rounded-lg transition duration-300 min-w-[260px] ${
-                           isOutOfStock
-                              ? "bg-gray-400 cursor-not-allowed"
-                              : "bg-green-500 hover:bg-green-600"
-                        }`}
-                     >
-                        <img
-                           src="/icons/whatsapp-icon.png"
-                           alt="WhatsApp"
-                           className="h-6 w-6 mr-2"
-                        />
-                        <span>Order via WhatsApp</span>
-                     </button>
                   </div>
                </div>
             </div>
          </div>
 
-         <OrderModal
-            showOrderModal={showOrderModal}
-            setShowOrderModal={setShowOrderModal}
-            product={{
-               ...product,
-               selectedSize: selectedSize
-            }}
-            userInfo={userInfo}
-         />
+
       </Layout>
    );
 }

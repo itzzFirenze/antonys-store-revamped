@@ -44,7 +44,7 @@ const Home = () => {
          : `data:image/jpeg;base64,${image}`;
    };
 
-   const latestProducts = products.slice(-4).reverse();
+   const latestProducts = Array.isArray(products) ? products.slice(-4).reverse() : [];
 
    return (
       <Layout>

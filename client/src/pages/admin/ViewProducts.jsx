@@ -42,11 +42,12 @@ const ViewProducts = () => {
 
    // Filtered products - memoized to prevent unnecessary recalculations
    const filteredProducts = React.useMemo(() => {
+      const lowerSearch = searchTerm.toLowerCase().replace(/-/g, '');
       return [...products]
          .reverse()
          .filter((product) =>
             product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            product._id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            (product.productCode && product.productCode.toLowerCase().replace(/-/g, '').includes(lowerSearch)) ||
             product.color.toLowerCase().includes(searchTerm.toLowerCase())
          );
    }, [products, searchTerm]);
@@ -199,7 +200,7 @@ const ViewProducts = () => {
                      <table className="w-full text-sm text-left text-gray-500">
                         <thead className="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700">
                            <tr>
-                              <th className="px-4 py-3">Product ID</th>
+                              <th className="px-4 py-3">Product Code</th>
                               <th className="px-4 py-3 max-w-xs">Product Name</th>
                               <th className="px-4 py-3 max-w-6">Brand</th>
                               <th className="px-4 py-3">Color</th>
@@ -212,7 +213,7 @@ const ViewProducts = () => {
                         <tbody>
                            {currentProducts.map((product) => (
                               <tr key={product._id} className="border-b dark:border-gray-700">
-                                 <td className="px-4 py-3">{product._id}</td>
+                                 <td className="px-4 py-3 font-medium">{product.productCode || '-'}</td>
                                  <td className="px-4 py-3 max-w-50">{product.name}</td>
                                  <td className="px-4 py-3 max-w-40">{product.brand}</td>
                                  <td className="px-4 py-3">{product.color}</td>

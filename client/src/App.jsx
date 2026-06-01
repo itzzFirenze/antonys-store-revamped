@@ -10,7 +10,6 @@ import Login from './pages/auth/Login';
 import Register from './pages/auth/Register';
 import UserProfile from './pages/UserProfile';
 import Wishlist from './pages/Wishlist';
-import Orders from './pages/Orders';
 import Admin from './pages/admin/Admin';
 import ViewProducts from './pages/admin/ViewProducts';
 import ViewUsers from './pages/admin/ViewUsers';
@@ -31,7 +30,6 @@ function App() {
             <Route path="/shop" element={<Shop />} />
             <Route path="/about" element={<About />} />
             <Route path="/contactus" element={<ContactUs />} />
-            <Route path="/your-orders" element={<Orders />} />
             <Route path="/wishlist" element={<Wishlist />} />
             <Route path="/user-profile" element={<UserProfile />} />
             <Route path="/products/:id" element={<ProductDetail />} />

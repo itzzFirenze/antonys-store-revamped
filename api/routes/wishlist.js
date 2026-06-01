@@ -1,9 +1,9 @@
 const express = require('express');
 const router = express.Router();
-const User = require('../models/user');
+const supabase = require('../supabase');
 
 
-// Add product to wishlist
+// ─── Add product to wishlist ──────────────────────────────────────────────────
 router.post('/', async (req, res) => {
    const { userId, productId } = req.body;
 
@@ -12,27 +12,37 @@ router.post('/', async (req, res) => {
    }
 
    try {
-      const user = await User.findById(userId);
-      if (!user) {
-         return res.status(404).json({ message: 'User not found' });
-      }
+      // Check if already in wishlist
+      const { data: existing } = await supabase
+         .from('wishlist')
+         .select('id')
+         .eq('user_id', userId)
+         .eq('product_id', productId)
+         .maybeSingle();
 
-      // Check if product is already in wishlist
-      if (user.wishlist.includes(productId)) {
+      if (existing) {
          return res.status(400).json({ message: 'Product already in wishlist' });
       }
 
-      user.wishlist.push(productId); // Add product ID to wishlist
-      await user.save();
+      await supabase.from('wishlist').insert({ user_id: userId, product_id: productId });
 
-      res.status(200).json({ message: 'Product added to wishlist', wishlist: user.wishlist });
+      // Return the current wishlist product IDs for this user
+      const { data: wishlistRows, error } = await supabase
+         .from('wishlist')
+         .select('product_id')
+         .eq('user_id', userId);
+
+      if (error) throw error;
+
+      const wishlist = wishlistRows.map(r => r.product_id);
+      res.status(200).json({ message: 'Product added to wishlist', wishlist });
    } catch (error) {
       res.status(500).json({ message: 'Server error', error: error.message });
    }
 });
 
 
-// Fetch user's wishlist
+// ─── Fetch user's wishlist ────────────────────────────────────────────────────
 router.get('/', async (req, res) => {
    const userId = req.query.userId;
 
@@ -41,44 +51,54 @@ router.get('/', async (req, res) => {
    }
 
    try {
-      const user = await User.findById(userId).select('wishlist');
-      if (!user) {
-         return res.status(404).json({ message: 'User not found' });
-      }
+      const { data, error } = await supabase
+         .from('wishlist')
+         .select('product_id')
+         .eq('user_id', userId);
 
-      res.status(200).json({ wishlist: user.wishlist });
+      if (error) throw error;
+
+      const wishlist = data.map(r => r.product_id);
+      res.status(200).json({ wishlist });
    } catch (error) {
       res.status(500).json({ message: 'Server error', error: error.message });
    }
 });
 
 
-// Remove product from wishlist
+// ─── Remove product from wishlist ─────────────────────────────────────────────
 router.delete('/:productId', async (req, res) => {
-   const { userId } = req.body; // User ID passed in the request body
-   const { productId } = req.params; // Product ID passed as a URL parameter
+   const { userId } = req.body;
+   const { productId } = req.params;
 
    if (!userId || !productId) {
       return res.status(400).json({ message: 'User ID and Product ID are required' });
    }
 
    try {
-      const user = await User.findById(userId);
-      if (!user) {
-         return res.status(404).json({ message: 'User not found' });
-      }
+      const { data: existing } = await supabase
+         .from('wishlist')
+         .select('id')
+         .eq('user_id', userId)
+         .eq('product_id', productId)
+         .maybeSingle();
 
-      // Check if product is in wishlist
-      const productIndex = user.wishlist.indexOf(productId);
-      if (productIndex === -1) {
+      if (!existing) {
          return res.status(400).json({ message: 'Product not found in wishlist' });
       }
 
-      // Remove product from wishlist
-      user.wishlist.splice(productIndex, 1);
-      await user.save();
+      await supabase.from('wishlist').delete().eq('user_id', userId).eq('product_id', productId);
 
-      res.status(200).json({ message: 'Product removed from wishlist', wishlist: user.wishlist });
+      // Return updated wishlist
+      const { data: wishlistRows, error } = await supabase
+         .from('wishlist')
+         .select('product_id')
+         .eq('user_id', userId);
+
+      if (error) throw error;
+
+      const wishlist = wishlistRows.map(r => r.product_id);
+      res.status(200).json({ message: 'Product removed from wishlist', wishlist });
    } catch (error) {
       res.status(500).json({ message: 'Server error', error: error.message });
    }

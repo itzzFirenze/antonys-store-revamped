@@ -67,39 +67,15 @@ const AddProductModal = ({ isOpen, closeModal, showToast }) => {
       }
    };
 
-   const uploadImageToUploadcare = async (file) => {
-      const UPLOADCARE_PUBLIC_KEY = import.meta.env.VITE_UPLOADCARE_PUBLIC_KEY;
-      const formData = new FormData();
-      formData.append("UPLOADCARE_PUB_KEY", UPLOADCARE_PUBLIC_KEY);
-      formData.append("UPLOADCARE_STORE", "auto");
-      formData.append("file", file);
-   
-      try {
-         const response = await fetch("https://upload.uploadcare.com/base/", {
-            method: "POST",
-            body: formData,
-         });
-   
-         if (response.ok) {
-            const data = await response.json();
-            return `https://ucarecdn.com/${data.file}/-/preview/750x1000/`; // Added the preview suffix
-         } else {
-            showToast("Failed to upload image", "error");
-            return null;
-         }
-      } catch (error) {
-         showToast(error.message, "error");
-      } finally {
-         setIsUploading(false);
-      }
-   };
+
 
    const handleSubmit = async (e) => {
       e.preventDefault();
       setIsUploading(true);
 
-      const imageUrl = await uploadImageToUploadcare(e.target.image.files[0]);
-      if (!imageUrl) {
+      const imageFile = e.target.image.files[0];
+      if (!imageFile) {
+         showToast("Image is required", "error");
          setIsUploading(false);
          return;
       }
@@ -107,24 +83,22 @@ const AddProductModal = ({ isOpen, closeModal, showToast }) => {
       // Read the latest sizes state
       const latestSizes = { ...sizes };
 
-      const productData = {
-         name: e.target.name.value.trim(),
-         brand: e.target.brand.value.trim(),
-         color: e.target.color.value.trim(),
-         category: e.target.category.value,
-         price: e.target.price.value,
-         countInStock: showSizes ? Object.values(latestSizes).reduce((a, b) => a + b, 0) : e.target.stock.value,
-         image: imageUrl,
-         sizes: showSizes ? latestSizes : undefined, // Ensure latestSizes is sent
-      };
-
-      console.log("Submitting product data:", productData); // Debugging log
+      const formData = new FormData();
+      formData.append('name', e.target.name.value.trim());
+      formData.append('brand', e.target.brand.value.trim());
+      formData.append('color', e.target.color.value.trim());
+      formData.append('category', e.target.category.value);
+      formData.append('price', e.target.price.value);
+      formData.append('countInStock', showSizes ? Object.values(latestSizes).reduce((a, b) => a + b, 0) : e.target.stock.value);
+      formData.append('image', imageFile);
+      if (showSizes) {
+         formData.append('sizes', JSON.stringify(latestSizes));
+      }
 
       try {
          const response = await fetch(`${BASE_URL}/api/products`, {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(productData)
+            body: formData
          });
 
          if (response.ok) {

@@ -12,6 +12,8 @@ const ViewUsers = () => {
    const navigate = useNavigate();
    const userList = useSelector((state) => state.userListReducer || {});
    const { loading, error, users = [] } = userList;
+   const userLoginReducer = useSelector((state) => state.userLoginReducer || {});
+   const { userInfo } = userLoginReducer;
 
    const [searchTerm, setSearchTerm] = useState("");
    const [currentPage, setCurrentPage] = useState(1);
@@ -176,19 +178,23 @@ const ViewUsers = () => {
                                     </td>
                                     <td className="px-4 py-3">{new Date(user.createdAt).toLocaleDateString()}</td>
                                     <td className="px-4 py-3 text-gray-100">
-                                       <button
-                                          onClick={() => handleToggleAdmin(user._id, user.isAdmin)}
-                                          className={`px-3 py-1 rounded-lg w-28 text-center min-w-32 ${user.isAdmin ? "bg-red-600 hover:bg-red-700" : "bg-blue-600 hover:bg-blue-700"}`}
-                                       >
-                                          {user.isAdmin ? "Revoke Admin" : "Make Admin"}
-                                       </button>
-                                       <button
-                                          onClick={() => openDeleteModal(user)}
-                                          disabled={user.isAdmin}
-                                          className={`px-3 py-1 ml-2 rounded-lg ${user.isAdmin ? "bg-red-500 cursor-not-allowed" : "bg-red-600 hover:bg-red-700"}`}
-                                       >
-                                          Delete
-                                       </button>
+                                       {userInfo?._id !== user._id && (
+                                          <>
+                                             <button
+                                                onClick={() => handleToggleAdmin(user._id, user.isAdmin)}
+                                                className={`px-3 py-1 rounded-lg w-28 text-center min-w-32 ${user.isAdmin ? "bg-red-600 hover:bg-red-700" : "bg-blue-600 hover:bg-blue-700"}`}
+                                             >
+                                                {user.isAdmin ? "Revoke Admin" : "Make Admin"}
+                                             </button>
+                                             <button
+                                                onClick={() => openDeleteModal(user)}
+                                                disabled={user.isAdmin}
+                                                className={`px-3 py-1 ml-2 rounded-lg ${user.isAdmin ? "bg-red-500 cursor-not-allowed" : "bg-red-600 hover:bg-red-700"}`}
+                                             >
+                                                Delete
+                                             </button>
+                                          </>
+                                       )}
                                     </td>
                                  </tr>
                               ))}

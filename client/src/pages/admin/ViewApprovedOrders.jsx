@@ -29,8 +29,11 @@ const ViewApprovedOrders = () => {
    const [localOrders, setLocalOrders] = useState([]);
    const ordersPerPage = 10;
 
-   const getUserName = (userId) => {
-      const user = users.find(user => user._id === userId);
+   const getUserName = (order) => {
+      if (order.user && order.user.name && order.user.name !== "Guest User") {
+         return order.user.name;
+      }
+      const user = users.find(user => user._id === order.userId);
       return user ? user.name : "Unknown User";
    };
 
@@ -55,15 +58,13 @@ const ViewApprovedOrders = () => {
       updateUrlAndState(1);
    }, 300);
 
-   const filteredOrders = [...localOrders]
-      .reverse()
-      .filter(
-         (order) =>
-            !order.isPending &&
-            (order.orderId?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-               order.userId?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-               order.productId?.toLowerCase().includes(searchTerm.toLowerCase()))
-      );
+   const sortedOrders = [...localOrders].reverse().filter((order) => !order.isPending);
+   const filteredOrders = sortedOrders.filter((order) => {
+      const userName = getUserName(order).toLowerCase();
+      return order.orderId?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+         userName.includes(searchTerm.toLowerCase()) ||
+         order.productId?.toLowerCase().includes(searchTerm.toLowerCase());
+   });
 
    const totalPages = Math.ceil(filteredOrders.length / ordersPerPage);
 
@@ -185,7 +186,7 @@ const ViewApprovedOrders = () => {
                            {currentOrders.map((order) => (
                               <tr key={order._id} className="border-b dark:border-gray-700">
                                  <td className="px-4 py-3">{order.orderId}</td>
-                                 <td className="px-4 py-3">{getUserName(order.userId)}</td>
+                                 <td className="px-4 py-3">{getUserName(order)}</td>
                                  <td className="px-4 py-3">{order.productId}</td>
                                  <td className="px-4 py-3">
                                     <span

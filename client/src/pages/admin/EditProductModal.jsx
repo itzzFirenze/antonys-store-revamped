@@ -85,74 +85,38 @@ const EditProductModal = ({ isOpen, closeModal, product, showToast }) => {
       }
    };
 
-   const uploadImageToUploadcare = async (file) => {
-      const UPLOADCARE_PUBLIC_KEY = import.meta.env.VITE_UPLOADCARE_PUBLIC_KEY;
-      const formData = new FormData();
-      formData.append("UPLOADCARE_PUB_KEY", UPLOADCARE_PUBLIC_KEY);
-      formData.append("UPLOADCARE_STORE", "auto");
-      formData.append("file", file);
 
-      try {
-         const response = await fetch("https://upload.uploadcare.com/base/", {
-            method: "POST",
-            body: formData,
-         });
-
-         if (!response.ok) {
-            throw new Error(`Upload failed with status: ${response.status}`);
-         }
-
-         const data = await response.json();
-         console.log("Uploadcare response:", data); // Add logging
-         
-         if (!data.file) {
-            throw new Error("No file UUID received from Uploadcare");
-         }
-
-         const imageUrl = `https://ucarecdn.com/${data.file}/-/preview/750x1000/`;
-         console.log("Generated image URL:", imageUrl); // Add logging
-         return imageUrl;
-      } catch (error) {
-         console.error("Error uploading to Uploadcare:", error);
-         showToast(`Upload error: ${error.message}`, "error");
-         return null;
-      }
-   };
 
    const handleSubmit = async (e) => {
       e.preventDefault();
       setIsUploading(true);
 
       try {
-         let imageUrl = formData.image;
          const imageFile = e.target.image.files[0];
+         const submitData = new FormData();
          
-         if (imageFile) {
-            console.log("Uploading new image file:", imageFile.name); // Add logging
-            imageUrl = await uploadImageToUploadcare(imageFile);
-            
-            if (!imageUrl) {
-               setIsUploading(false);
-               return;
-            }
-         } else {
-            console.log("Using existing image URL:", imageUrl); // Add logging
+         submitData.append('name', formData.name);
+         submitData.append('brand', formData.brand);
+         submitData.append('color', formData.color);
+         submitData.append('category', formData.category);
+         submitData.append('price', formData.price);
+         submitData.append('countInStock', formData.countInStock);
+         
+         if (showSizes) {
+            submitData.append('sizes', JSON.stringify(sizes));
          }
 
-         const updateData = {
-            ...formData,
-            image: imageUrl,
-            sizes: showSizes ? sizes : undefined
-         };
+         if (imageFile) {
+            submitData.append('image', imageFile);
+         } else if (formData.image) {
+            submitData.append('image', formData.image);
+         }
 
-         console.log("Sending update data to API:", updateData); // Add logging
+         console.log("Sending update data to API"); 
 
          const response = await fetch(`${BASE_URL}/api/products/${product._id}`, {
             method: "PUT",
-            headers: {
-               "Content-Type": "application/json",
-            },
-            body: JSON.stringify(updateData)
+            body: submitData
          });
 
          if (!response.ok) {
@@ -163,11 +127,8 @@ const EditProductModal = ({ isOpen, closeModal, product, showToast }) => {
          const updatedProduct = await response.json();
          console.log("API response:", updatedProduct); // Add logging
 
-         if (!updatedProduct.image || updatedProduct.image !== imageUrl) {
-            console.error("Image URL mismatch:", {
-               sent: imageUrl,
-               received: updatedProduct.image
-            });
+         if (!updatedProduct.image) {
+            console.warn("Product image not updated properly in response.");
          }
 
          refreshProducts();

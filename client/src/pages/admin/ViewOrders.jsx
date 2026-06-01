@@ -9,6 +9,7 @@ import OrderDetailsModal from "./OrderDetailsModal";
 import DeleteOrderModal from "./DeleteOrderModal";
 import ApproveOrderModal from "./ApproveOrderModal";
 import PaymentRequestModal from "./PaymentRequestModal";
+import CreateOrderModal from "./CreateOrderModal";
 import debounce from "lodash.debounce";
 
 const ViewOrders = () => {
@@ -33,6 +34,7 @@ const ViewOrders = () => {
    const [orderToApprove, setOrderToApprove] = useState(null);
    const [isPaymentRequestModalOpen, setIsPaymentRequestModalOpen] = useState(false);
    const [orderForPayment, setOrderForPayment] = useState(null);
+   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
    const ordersPerPage = 10;
 
    // Initialize from URL and fetch data on mount
@@ -53,15 +55,18 @@ const ViewOrders = () => {
       updateUrlAndState(1);
    }, 300);
 
-   const getUserName = (userId) => {
-      const user = users.find(user => user._id === userId);
+   const getUserName = (order) => {
+      if (order.user && order.user.name && order.user.name !== "Guest User") {
+         return order.user.name;
+      }
+      const user = users.find(user => user._id === order.userId);
       return user ? user.name : "Unknown User";
    };
 
    const sortedOrders = [...orders].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
    const filteredOrders = sortedOrders.filter((order) => {
-      const userName = getUserName(order.userId).toLowerCase();
+      const userName = getUserName(order).toLowerCase();
       return order.orderId?.toLowerCase().includes(searchTerm.toLowerCase()) ||
          userName.includes(searchTerm.toLowerCase()) ||
          order.productId?.toLowerCase().includes(searchTerm.toLowerCase());
@@ -152,6 +157,15 @@ const ViewOrders = () => {
                         onChange={(e) => handleSearchChange(e.target.value)}
                      />
                   </div>
+                  <div className="w-full md:w-auto flex flex-col md:flex-row space-y-2 md:space-y-0 items-stretch md:items-center justify-end md:space-x-3 flex-shrink-0">
+                     <button
+                        type="button"
+                        onClick={() => setIsCreateModalOpen(true)}
+                        className="flex items-center justify-center text-white bg-blue-600 hover:bg-blue-700 focus:ring-4 focus:ring-blue-300 font-medium rounded-lg text-sm px-4 py-2"
+                     >
+                        Create Manual Order
+                     </button>
+                  </div>
                </div>
 
                {loading ? (
@@ -184,7 +198,7 @@ const ViewOrders = () => {
                            {currentOrders.map((order) => (
                               <tr key={order._id} className="border-b dark:border-gray-700">
                                  <td className="px-4 py-3">{order.orderId}</td>
-                                 <td className="px-4 py-3">{getUserName(order.userId)}</td>
+                                 <td className="px-4 py-3">{getUserName(order)}</td>
                                  <td className="px-4 py-3">{order.productId}</td>
                                  <td className="px-4 py-3">
                                     <span
@@ -312,6 +326,12 @@ const ViewOrders = () => {
             closeModal={() => setIsApproveModalOpen(false)}
             order={orderToApprove}
             onApproveSuccess={handleApproveSuccess}
+         />
+
+         <CreateOrderModal
+            isOpen={isCreateModalOpen}
+            closeModal={() => setIsCreateModalOpen(false)}
+            onOrderCreated={() => dispatch(fetchOrderListAction())}
          />
       </section>
    );

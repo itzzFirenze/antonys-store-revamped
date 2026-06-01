@@ -41,6 +41,13 @@ const OrderDetailsModal = ({ isOpen, closeModal, orderId }) => {
    }, [isOpen]);
 
    const getUserDetails = () => {
+      if (order?.user && order.user.name && order.user.name !== "Guest User") {
+         return {
+            _id: "Manual Order",
+            name: order.user.name,
+            email: order.user.email
+         };
+      }
       if (!users || !order?.userId) return null;
       return users.find((user) => user._id === order.userId);
    };

@@ -1,61 +1,69 @@
 const express = require('express');
 const adminRoute = express.Router();
 const asyncHandler = require('express-async-handler');
-const Product = require('../models/product');
-const User = require('../models/user');
-const Order = require('../models/order')
+const productModel = require('../models/productModel');
+const userModel = require('../models/userModel');
+const orderModel = require('../models/orderModel');
+const supabase = require('../supabase');
 
-// Admin Route to Get All Products
-adminRoute.get("/products", asyncHandler(async (req, res) => {
-   const products = await Product.find({});
-   res.json(products);
+
+// ─── Get all products ─────────────────────────────────────────────────────────
+adminRoute.get('/products', asyncHandler(async (req, res) => {
+   const products = await productModel.findAll();
+   res.json(products.map(productModel.toClientShape));
 }));
 
-// Admin Route to Get a Specific Product
-adminRoute.get("/products/:id", asyncHandler(async (req, res) => {
-   const product = await Product.findById(req.params.id);
+
+// ─── Get a specific product ───────────────────────────────────────────────────
+adminRoute.get('/products/:id', asyncHandler(async (req, res) => {
+   const product = await productModel.findById(req.params.id);
    if (product) {
-      res.json(product);
+      res.json(productModel.toClientShape(product));
    } else {
       res.status(404);
-      throw new Error("Product not found!");
+      throw new Error('Product not found!');
    }
 }));
 
-// Admin Route to Add a New Product
-adminRoute.post("/products", asyncHandler(async (req, res) => {
-   const { name, description, price, stock } = req.body;
-   const newProduct = new Product({ name, description, price, stock });
 
-   await newProduct.save();
-   res.status(201).json(newProduct);
+// ─── Add a new product (admin shortcut — no image upload) ────────────────────
+adminRoute.post('/products', asyncHandler(async (req, res) => {
+   const { name, brand, price, color, countInStock, category, image, sizes } = req.body;
+   const newProduct = await productModel.create({ name, brand, price, color, countInStock, category, image, sizes });
+   res.status(201).json(productModel.toClientShape(newProduct));
 }));
 
-// Admin Route to Delete a Product
-adminRoute.delete("/products/:id", asyncHandler(async (req, res) => {
-   const product = await Product.findById(req.params.id);
+
+// ─── Delete a product ─────────────────────────────────────────────────────────
+adminRoute.delete('/products/:id', asyncHandler(async (req, res) => {
+   const product = await productModel.findById(req.params.id);
    if (product) {
-      await product.remove();
-      res.status(200).json({ message: "Product removed" });
+      await productModel.deleteById(req.params.id);
+      res.status(200).json({ message: 'Product removed' });
    } else {
       res.status(404);
-      throw new Error("Product not found!");
+      throw new Error('Product not found!');
    }
 }));
 
-adminRoute.get("/dashboard-stats", asyncHandler(async (req, res) => {
+
+// ─── Dashboard stats ──────────────────────────────────────────────────────────
+adminRoute.get('/dashboard-stats', asyncHandler(async (req, res) => {
    try {
-      // Get total users
-      const totalUsers = await User.countDocuments();
+      // Count users
+      const { count: totalUsers, error: usersErr } = await supabase
+         .from('users')
+         .select('*', { count: 'exact', head: true });
+      if (usersErr) throw usersErr;
 
-      // Get incomplete orders
-      const activeOrders = await Order.countDocuments({ isCompleted: false, isPending: false});
+      // Active orders: approved but not yet completed
+      const activeOrders = await orderModel.countWhere({ is_completed: false, is_pending: false });
 
-      // Get total products
-      const productsInStock = await Product.countDocuments();
+      // Products in stock
+      const productsInStock = await productModel.countAll();
 
-      // Get Orders to approve
-      const ordersToApprove = await Order.countDocuments({ isPending: true });;
+      // Orders awaiting approval
+      const ordersToApprove = await orderModel.countWhere({ is_pending: true });
 
       res.json({
          totalUsers,
@@ -67,5 +75,6 @@ adminRoute.get("/dashboard-stats", asyncHandler(async (req, res) => {
       res.status(500).json({ message: error.message });
    }
 }));
+
 
 module.exports = adminRoute;
