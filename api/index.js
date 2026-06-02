@@ -55,7 +55,14 @@ const wishlistRoute = require('./routes/wishlist');
 const orderRoute    = require('./routes/order');
 
 app.use('/api/contact',  rateLimit({ windowMs: 60 * 60 * 1000, max: 10 }), contactRoute);
-app.use('/api/users',    authLimiter, userRoute);
+
+// Apply strict rate limiting only to auth endpoints, not the entire user route
+app.use('/api/users/login', authLimiter);
+app.use('/api/users/send-verification-code', authLimiter);
+app.use('/api/users/forgot-password', authLimiter);
+app.use('/api/users/reset-password', authLimiter);
+
+app.use('/api/users',    userRoute);
 app.use('/api/products', productRoute);
 app.use('/api/admin',    adminRoute);
 app.use('/api/wishlist', wishlistRoute);

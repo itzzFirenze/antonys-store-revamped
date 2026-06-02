@@ -8,7 +8,7 @@ import { SpinnerLoading } from "../../components/Spinner";
 import OrderDetailsModal from "./OrderDetailsModal";
 import DeleteOrderModal from "./DeleteOrderModal";
 import ApproveOrderModal from "./ApproveOrderModal";
-import PaymentRequestModal from "./PaymentRequestModal";
+import OrderReceiptModal from "./OrderReceiptModal";
 import CreateOrderModal from "./CreateOrderModal";
 import debounce from "lodash.debounce";
 
@@ -36,8 +36,8 @@ const ViewOrders = () => {
    const [isApproveModalOpen, setIsApproveModalOpen] = useState(false);
    const [orderToApprove, setOrderToApprove] = useState(null);
 
-   const [isPaymentRequestModalOpen, setIsPaymentRequestModalOpen] = useState(false);
-   const [orderForPayment, setOrderForPayment] = useState(null);
+   const [isReceiptModalOpen, setIsReceiptModalOpen] = useState(false);
+   const [orderForReceipt, setOrderForReceipt] = useState(null);
 
    const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
@@ -135,9 +135,9 @@ const ViewOrders = () => {
       setIsApproveModalOpen(true);
    };
 
-   const handlePaymentRequest = (order) => {
-      setOrderForPayment(order);
-      setIsPaymentRequestModalOpen(true);
+   const handleGenerateReceipt = (order) => {
+      setOrderForReceipt(order);
+      setIsReceiptModalOpen(true);
    };
 
    const handleOpenDeleteModal = (order) => {
@@ -250,21 +250,10 @@ const ViewOrders = () => {
                                              View
                                           </button>
                                           <button
-                                             onClick={() => handlePaymentRequest(order)}
-                                             disabled={!order.isPending || order.isReqPayment}
-                                             title={
-                                                !order.isPending
-                                                   ? "Order already approved"
-                                                   : order.isReqPayment
-                                                      ? "Payment already requested"
-                                                      : "Request payment"
-                                             }
-                                             className={`px-3 py-1 rounded-lg text-xs font-medium text-white transition-colors ${order.isPending && !order.isReqPayment
-                                                   ? "bg-blue-500 hover:bg-blue-600"
-                                                   : "bg-gray-400 dark:bg-gray-600 cursor-not-allowed opacity-60"
-                                                }`}
+                                             onClick={() => handleGenerateReceipt(order)}
+                                             className="px-3 py-1 rounded-lg text-xs font-medium text-white bg-purple-600 hover:bg-purple-700 transition-colors"
                                           >
-                                             {order.isReqPayment ? "Payment Requested" : "Request Payment"}
+                                             Generate Bill
                                           </button>
                                           <button
                                              onClick={() => handleApproveOrder(order)}
@@ -368,14 +357,10 @@ const ViewOrders = () => {
             orderId={selectedOrder?._id}
          />
 
-         <PaymentRequestModal
-            isOpen={isPaymentRequestModalOpen}
-            closeModal={() => setIsPaymentRequestModalOpen(false)}
-            order={orderForPayment}
-            onPaymentRequested={() => {
-               setOrderForPayment(null);
-               dispatch(fetchOrderListAction());
-            }}
+         <OrderReceiptModal
+            isOpen={isReceiptModalOpen}
+            closeModal={() => setIsReceiptModalOpen(false)}
+            orderId={orderForReceipt?._id}
          />
 
          <DeleteOrderModal
