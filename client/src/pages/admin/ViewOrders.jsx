@@ -238,7 +238,7 @@ const ViewOrders = () => {
                                                 : "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300"
                                              }`}
                                        >
-                                          {order.isPending ? "Pending" : "Approved"}
+                                          {order.isPending ? "Not Paid" : "Paid"}
                                        </span>
                                     </td>
                                     <td className="px-4 py-3">
@@ -258,13 +258,13 @@ const ViewOrders = () => {
                                           <button
                                              onClick={() => handleApproveOrder(order)}
                                              disabled={!order.isPending}
-                                             title={!order.isPending ? "Order already approved" : "Approve order"}
+                                             title={!order.isPending ? "Order already paid" : "Mark order as paid"}
                                              className={`px-3 py-1 rounded-lg text-xs font-medium text-white transition-colors ${order.isPending
                                                    ? "bg-green-500 hover:bg-green-600"
                                                    : "bg-gray-400 dark:bg-gray-600 cursor-not-allowed opacity-60"
                                                 }`}
                                           >
-                                             Approve
+                                             Mark as Paid
                                           </button>
                                           <button
                                              onClick={() => handleOpenDeleteModal(order)}

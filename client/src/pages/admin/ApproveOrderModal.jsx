@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useSelector, useDispatch } from "react-redux";
-import { productAction } from "../../Redux/Actions/Product";
+import { productAction, productListAction } from "../../Redux/Actions/Product";
 import { BASE_URL } from "../../Redux/Constants/BASE_URL";
 
 const ApproveOrderModal = ({ isOpen, closeModal, order, onApproveSuccess }) => {
@@ -9,26 +9,38 @@ const ApproveOrderModal = ({ isOpen, closeModal, order, onApproveSuccess }) => {
    const [error, setError] = useState(false);
 
    const { product } = useSelector((state) => state.productReducer);
+   const { products } = useSelector((state) => state.productListReducer);
 
    useEffect(() => {
-      if (isOpen && order?.productId) {
-         dispatch(productAction(order.productId));
+      if (isOpen) {
+         if (order?.productId && order.productId !== "MULTIPLE") {
+            dispatch(productAction(order.productId));
+         }
+         if (order?.orderItems && order.orderItems.length > 0) {
+            if (!products || products.length === 0) {
+               dispatch(productListAction());
+            }
+         }
       }
-   }, [isOpen, order?.productId, dispatch]);
+   }, [isOpen, order?.productId, order?.orderItems?.length, dispatch]);
 
    if (!isOpen) return null;
 
-   const handleWhatsAppRedirect = () => {
-      const message = `Dear Customer,%0A%0A` +
-         `Your order has been confirmed!%0A%0A` +
-         `Order Details:%0A` +
-         `Order ID: ${encodeURIComponent(order.orderId)}%0A` +
-         `Status: Approved%0A` +
-         `Total Amount: ₹${encodeURIComponent(product?.price + 50 || 0)}%0A%0A` +
-         `Thank you for shopping with us! We'll keep you updated on your order status.`;
+   let totalAmount = 50;
+   if (order?.orderItems && order.orderItems.length > 0) {
+      order.orderItems.forEach((item) => {
+         const p = products?.find(p => p._id === item.productId);
+         if (p) totalAmount += p.price || 0;
+      });
+   } else if (product) {
+      totalAmount += product.price || 0;
+   }
 
-      const whatsappNumber = '91' + order.phoneNumber?.replace(/\D/g, '') || '';
-      const whatsappUrl = `https://wa.me/${whatsappNumber}?text=${message}`;
+   const handleWhatsAppRedirect = () => {
+      const message = `Dear Customer, we have successfully received your payment of ₹${totalAmount.toLocaleString('en-IN')} for order ${encodeURIComponent(order.orderId)}. Your order is confirmed! Please find your receipt attached. Thank you for shopping with us!`;
+
+      const whatsappNumber = '91' + (order.phoneNumber?.replace(/\D/g, '') || '');
+      const whatsappUrl = `https://web.whatsapp.com/send?phone=${whatsappNumber}&text=${message}`;
       window.open(whatsappUrl, '_blank');
    };
 
@@ -85,7 +97,7 @@ const ApproveOrderModal = ({ isOpen, closeModal, order, onApproveSuccess }) => {
             {/* Modal Header */}
             <div className="flex justify-between items-center p-4 border-b dark:border-gray-600">
                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                  Approve Order
+                  Mark as Paid
                </h3>
                <button
                   type="button"
@@ -111,13 +123,13 @@ const ApproveOrderModal = ({ isOpen, closeModal, order, onApproveSuccess }) => {
             <div className="p-6">
                <div className="mb-4 text-gray-700 dark:text-gray-300">
                   <p className="mb-2">Order ID: {order.orderId}</p>
-                  <p className="mb-4">Total Amount: ₹{product?.price + 50 || 0}</p>
+                  <p className="mb-4">Total Amount: ₹{totalAmount.toLocaleString('en-IN')}</p>
 
-                  <p>Are you sure you want to approve this order? This will:</p>
+                  <p>Are you sure you want to mark this order as paid? This will:</p>
                </div>
                <ul className="mb-4 ml-4 list-disc text-gray-700 dark:text-gray-300">
-                  <li>Mark the order as approved in the system</li>
-                  <li>Open WhatsApp with a pre-loaded confirmation message</li>
+                  <li>Mark the order as paid in the system</li>
+                  <li>Open WhatsApp with a pre-loaded payment confirmation message</li>
                </ul>
 
                {error && (
@@ -135,7 +147,7 @@ const ApproveOrderModal = ({ isOpen, closeModal, order, onApproveSuccess }) => {
                      className={`text-gray-100 bg-green-500 hover:bg-green-600 focus:ring-4 focus:outline-none focus:ring-green-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center ${loading ? "opacity-50 cursor-not-allowed" : ""
                         }`}
                   >
-                     {loading ? "Processing..." : "Approve Order"}
+                     {loading ? "Processing..." : "Mark as Paid"}
                   </button>
                   <button
                      type="button"
