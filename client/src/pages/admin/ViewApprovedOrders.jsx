@@ -8,6 +8,27 @@ import OrderDetailsModal from "./OrderDetailsModal";
 import DeleteOrderModal from "./DeleteOrderModal";
 import debounce from "lodash.debounce";
 
+const CopyableId = ({ id }) => {
+   const [copied, setCopied] = useState(false);
+
+   const handleCopy = () => {
+      navigator.clipboard.writeText(id).then(() => {
+         setCopied(true);
+         setTimeout(() => setCopied(false), 1500);
+      });
+   };
+
+   return (
+      <button
+         onClick={handleCopy}
+         title={id}
+         className="font-mono text-xs bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors cursor-pointer select-none"
+      >
+         {copied ? "Copied!" : id}
+      </button>
+   );
+};
+
 const ViewApprovedOrders = () => {
    const { refreshFlag } = useOutletContext();
    const dispatch = useDispatch();
@@ -41,11 +62,11 @@ const ViewApprovedOrders = () => {
    useEffect(() => {
       const params = new URLSearchParams(location.search);
       const pageFromUrl = parseInt(params.get('page'));
-      
+
       if (pageFromUrl && !isNaN(pageFromUrl)) {
          setCurrentPage(pageFromUrl);
       }
-      
+
       dispatch(fetchOrderListAction());
    }, [dispatch, location.search, refreshFlag]);
 
@@ -88,7 +109,7 @@ const ViewApprovedOrders = () => {
       setLocalOrders(prevOrders => {
          const remainingOrders = prevOrders.filter(order => order._id !== deletedOrderId);
          const newTotalPages = Math.ceil(remainingOrders.length / ordersPerPage);
-         
+
          // If current page would be empty after deletion, go to the last available page
          if (currentPage > newTotalPages) {
             updateUrlAndState(Math.max(1, newTotalPages));
@@ -96,7 +117,7 @@ const ViewApprovedOrders = () => {
             // Stay on the current page
             updateUrlAndState(currentPage);
          }
-         
+
          return remainingOrders;
       });
    };
@@ -121,7 +142,7 @@ const ViewApprovedOrders = () => {
          dispatch(productAction(selectedOrder.productId));
       }
    }, [isModalOpen, selectedOrder?.productId, dispatch]);
-   
+
    const handleWhatsAppRedirect = (order) => {
       const message = `Dear Customer,%0A%0A` +
          `Your product has been shipped!%0A%0A` +
@@ -130,7 +151,7 @@ const ViewApprovedOrders = () => {
          `Status: Completed%0A` +
          `Total Amount: ₹${encodeURIComponent(product?.price + 50 || 0)}%0A%0A` +
          `Thank you for shopping with us! We hope you enjoy your purchase.`;
-   
+
       const whatsappNumber = '91' + order.phoneNumber?.replace(/\D/g, '') || '';
       const whatsappUrl = `https://wa.me/${whatsappNumber}?text=${message}`;
       window.open(whatsappUrl, '_blank');
@@ -150,7 +171,7 @@ const ViewApprovedOrders = () => {
                      <input
                         type="text"
                         className="bg-gray-50 border text-gray-900 text-sm rounded-lg focus:ring-primary-500 focus:border-primary-500 block w-full p-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                        placeholder="Search by Order ID, User ID or Product ID"
+                        placeholder="Search by Order ID or User ID"
                         onChange={(e) => handleSearchChange(e.target.value)}
                      />
                   </div>
@@ -177,7 +198,7 @@ const ViewApprovedOrders = () => {
                            <tr>
                               <th className="px-4 py-3">Order ID</th>
                               <th className="px-4 py-3">User Name</th>
-                              <th className="px-4 py-3">Product ID</th>
+                              <th className="px-4 py-3">Products</th>
                               <th className="px-4 py-3">Status</th>
                               <th className="px-4 py-3">Actions</th>
                            </tr>
@@ -185,16 +206,23 @@ const ViewApprovedOrders = () => {
                         <tbody>
                            {currentOrders.map((order) => (
                               <tr key={order._id} className="border-b dark:border-gray-700">
-                                 <td className="px-4 py-3">{order.orderId}</td>
+                                 <td className="px-4 py-3">
+                                    <CopyableId id={order.orderId} />
+                                 </td>
                                  <td className="px-4 py-3">{getUserName(order)}</td>
-                                 <td className="px-4 py-3">{order.productId}</td>
+                                 <td className="px-4 py-3">
+                                    {order.orderItems?.length > 0
+                                       ? `${order.orderItems.length} item${order.orderItems.length !== 1 ? "s" : ""}`
+                                       : order.productId && order.productId !== "MULTIPLE"
+                                          ? "1 item"
+                                          : "—"}
+                                 </td>
                                  <td className="px-4 py-3">
                                     <span
-                                       className={`px-2 py-1 rounded-full text-xs ${
-                                          order.isCompleted
-                                             ? "bg-green-100 text-green-800"
-                                             : "bg-yellow-100 text-yellow-800"
-                                       }`}
+                                       className={`px-2 py-1 rounded-full text-xs ${order.isCompleted
+                                          ? "bg-green-100 text-green-800"
+                                          : "bg-yellow-100 text-yellow-800"
+                                          }`}
                                     >
                                        {order.isCompleted ? "Completed" : "In Progress"}
                                     </span>
@@ -209,11 +237,10 @@ const ViewApprovedOrders = () => {
                                     <button
                                        onClick={() => handleCompleteOrder(order)}
                                        disabled={order.isCompleted}
-                                       className={`text-gray-100 rounded-lg px-3 py-1 ${
-                                          order.isCompleted
-                                             ? "bg-gray-400 cursor-not-allowed"
-                                             : "bg-green-500 hover:bg-green-700"
-                                       }`}
+                                       className={`text-gray-100 rounded-lg px-3 py-1 ${order.isCompleted
+                                          ? "bg-gray-400 cursor-not-allowed"
+                                          : "bg-green-500 hover:bg-green-700"
+                                          }`}
                                     >
                                        Complete
                                     </button>
@@ -267,11 +294,10 @@ const ViewApprovedOrders = () => {
                            <button
                               onClick={() => paginate(currentPage + 1)}
                               disabled={currentPage === Math.ceil(filteredOrders.length / ordersPerPage)}
-                              className={`px-3 py-1 ${
-                                 currentPage === Math.ceil(filteredOrders.length / ordersPerPage)
-                                    ? "cursor-not-allowed text-gray-400"
-                                    : ""
-                              }`}
+                              className={`px-3 py-1 ${currentPage === Math.ceil(filteredOrders.length / ordersPerPage)
+                                 ? "cursor-not-allowed text-gray-400"
+                                 : ""
+                                 }`}
                            >
                               Next
                            </button>

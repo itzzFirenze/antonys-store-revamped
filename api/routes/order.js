@@ -202,6 +202,26 @@ router.put('/:orderId/approve', async (req, res) => {
          return res.status(400).json({ message: 'Order is already approved' });
       }
 
+      // Decrement stock for each product in the order
+      const productModel = require('../models/productModel');
+      let orderItems = [];
+      try {
+         if (typeof order.additional_details === 'string' && order.additional_details.startsWith('{')) {
+            const parsed = JSON.parse(order.additional_details);
+            if (parsed.orderItems && Array.isArray(parsed.orderItems)) {
+               orderItems = parsed.orderItems;
+            }
+         }
+      } catch (e) {}
+
+      if (orderItems.length > 0) {
+         for (const item of orderItems) {
+            await productModel.decreaseQuantity(item.productId, 1, item.size);
+         }
+      } else if (order.product_id && order.product_id !== "MULTIPLE") {
+         await productModel.decreaseQuantity(order.product_id, 1, order.size);
+      }
+
       const updatedOrder = await orderModel.update(req.params.orderId, {
          is_pending:  false,
          approved_at: new Date().toISOString(),
@@ -212,6 +232,7 @@ router.put('/:orderId/approve', async (req, res) => {
          order: orderModel.toClientShape(updatedOrder),
       });
    } catch (error) {
+      console.error('Approve order error:', error);
       res.status(500).json({ message: 'Failed to approve order' });
    }
 });

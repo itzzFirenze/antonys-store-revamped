@@ -12,6 +12,27 @@ import OrderReceiptModal from "./OrderReceiptModal";
 import CreateOrderModal from "./CreateOrderModal";
 import debounce from "lodash.debounce";
 
+const CopyableId = ({ id }) => {
+   const [copied, setCopied] = useState(false);
+
+   const handleCopy = () => {
+      navigator.clipboard.writeText(id).then(() => {
+         setCopied(true);
+         setTimeout(() => setCopied(false), 1500);
+      });
+   };
+
+   return (
+      <button
+         onClick={handleCopy}
+         title={id}
+         className="font-mono text-xs bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors cursor-pointer select-none"
+      >
+         {copied ? "Copied!" : id}
+      </button>
+   );
+};
+
 const ViewOrders = () => {
    const { refreshFlag } = useOutletContext();
    const dispatch = useDispatch();
@@ -80,8 +101,7 @@ const ViewOrders = () => {
          .filter(
             (order) =>
                order.orderId?.toLowerCase().includes(lower) ||
-               getUserName(order).toLowerCase().includes(lower) ||
-               order.productId?.toLowerCase().includes(lower)
+               getUserName(order).toLowerCase().includes(lower)
          );
    }, [orders, searchTerm, getUserName]);
 
@@ -177,7 +197,7 @@ const ViewOrders = () => {
                         <input
                            type="text"
                            className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-xl focus:ring-blue-600 focus:border-blue-600 block w-full p-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:placeholder-gray-400"
-                           placeholder="Search by Order ID, username, or Product ID..."
+                           placeholder="Search by Order ID or username..."
                            onChange={(e) => handleSearchChange(e.target.value)}
                         />
                      </div>
@@ -215,7 +235,7 @@ const ViewOrders = () => {
                               <tr>
                                  <th className="px-4 py-3">Order ID</th>
                                  <th className="px-4 py-3">Username</th>
-                                 <th className="px-4 py-3">Product ID</th>
+                                 <th className="px-4 py-3">Products</th>
                                  <th className="px-4 py-3">Status</th>
                                  <th className="px-4 py-3">Actions</th>
                               </tr>
@@ -226,16 +246,22 @@ const ViewOrders = () => {
                                     key={order._id}
                                     className="border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                                  >
-                                    <td className="px-4 py-3 font-medium text-gray-900 dark:text-white">
-                                       {order.orderId}
+                                    <td className="px-4 py-3">
+                                       <CopyableId id={order.orderId} />
                                     </td>
                                     <td className="px-4 py-3">{getUserName(order)}</td>
-                                    <td className="px-4 py-3 font-mono text-xs">{order.productId}</td>
+                                    <td className="px-4 py-3">
+                                       {order.orderItems?.length > 0
+                                          ? `${order.orderItems.length} item${order.orderItems.length !== 1 ? "s" : ""}`
+                                          : order.productId && order.productId !== "MULTIPLE"
+                                             ? "1 item"
+                                             : "—"}
+                                    </td>
                                     <td className="px-4 py-3">
                                        <span
                                           className={`px-2 py-1 rounded-full text-xs font-medium ${order.isPending
-                                                ? "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300"
-                                                : "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300"
+                                             ? "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300"
+                                             : "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300"
                                              }`}
                                        >
                                           {order.isPending ? "Not Paid" : "Paid"}
@@ -260,8 +286,8 @@ const ViewOrders = () => {
                                              disabled={!order.isPending}
                                              title={!order.isPending ? "Order already paid" : "Mark order as paid"}
                                              className={`px-3 py-1 rounded-lg text-xs font-medium text-white transition-colors ${order.isPending
-                                                   ? "bg-green-500 hover:bg-green-600"
-                                                   : "bg-gray-400 dark:bg-gray-600 cursor-not-allowed opacity-60"
+                                                ? "bg-green-500 hover:bg-green-600"
+                                                : "bg-gray-400 dark:bg-gray-600 cursor-not-allowed opacity-60"
                                                 }`}
                                           >
                                              Mark as Paid
@@ -325,8 +351,8 @@ const ViewOrders = () => {
                                     <button
                                        onClick={() => paginate(page)}
                                        className={`px-3 py-1 rounded border transition-colors ${currentPage === page
-                                             ? "bg-blue-600 text-white border-blue-600"
-                                             : "border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
+                                          ? "bg-blue-600 text-white border-blue-600"
+                                          : "border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
                                           }`}
                                     >
                                        {page}

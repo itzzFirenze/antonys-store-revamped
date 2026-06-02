@@ -64,7 +64,7 @@ const Navbar = () => {
    return (
       <>
          <style>{hamburgerStyles}</style>
-         <div className="fixed top-0 left-0 right-0 z-50">
+         <div className="fixed top-0 left-0 right-0 z-50 py-0.5">
             <nav className="mx-4 my-2 rounded-xl bg-white/40 backdrop-blur-md border shadow-lg dark:bg-gray-900/70 border-none">
                <div className="max-w-screen-xl flex flex-wrap items-center justify-between mx-auto p-2">
                   <a href="/" className="flex items-center space-x-3 rtl:space-x-reverse">
@@ -110,8 +110,8 @@ const Navbar = () => {
                               className={({ isActive }) =>
                                  `block w-full md:w-auto text-center transition-all duration-300 ease-in-out
                                  md:rounded-full md:inline-block
-                                 ${isActive 
-                                    ? "text-white bg-pink-600 px-5 py-1.5 rounded-2xl" 
+                                 ${isActive
+                                    ? "text-white bg-pink-600 px-5 py-1.5 rounded-2xl"
                                     : "text-gray-800 hover:bg-pink-100 dark:text-gray-200 dark:hover:bg-pink-900/30 px-5 py-1.5"
                                  }`
                               }
@@ -126,8 +126,8 @@ const Navbar = () => {
                               className={({ isActive }) =>
                                  `block w-full md:w-auto text-center transition-all duration-300 ease-in-out
                                  md:rounded-full md:inline-block
-                                 ${isActive 
-                                    ? "text-white bg-pink-600 px-5 py-1.5 rounded-2xl" 
+                                 ${isActive
+                                    ? "text-white bg-pink-600 px-5 py-1.5 rounded-2xl"
                                     : "text-gray-800 hover:bg-pink-100 dark:text-gray-200 dark:hover:bg-pink-900/30 px-5 py-1.5"
                                  }`
                               }
@@ -142,8 +142,8 @@ const Navbar = () => {
                               className={({ isActive }) =>
                                  `block w-full md:w-auto text-center transition-all duration-300 ease-in-out
                                  md:rounded-full md:inline-block
-                                 ${isActive 
-                                    ? "text-white bg-pink-600 px-5 py-1.5 rounded-2xl" 
+                                 ${isActive
+                                    ? "text-white bg-pink-600 px-5 py-1.5 rounded-2xl"
                                     : "text-gray-800 hover:bg-pink-100 dark:text-gray-200 dark:hover:bg-pink-900/30 px-5 py-1.5"
                                  }`
                               }
@@ -158,8 +158,8 @@ const Navbar = () => {
                               className={({ isActive }) =>
                                  `block w-full md:w-auto text-center transition-all duration-300 ease-in-out
                                  md:rounded-full md:inline-block
-                                 ${isActive 
-                                    ? "text-white bg-pink-600 px-5 py-1.5 rounded-2xl" 
+                                 ${isActive
+                                    ? "text-white bg-pink-600 px-5 py-1.5 rounded-2xl"
                                     : "text-gray-800 hover:bg-pink-100 dark:text-gray-200 dark:hover:bg-pink-900/30 px-5 py-1.5"
                                  }`
                               }
